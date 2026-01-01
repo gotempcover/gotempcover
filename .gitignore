@@ -23,3 +23,8 @@ pnpm-debug.log*
 # OS / editor
 .DS_Store
 .vscode
+
+# local pdf outputs
+proposal-test.pdf
+certificate-test.pdf
+*.pdf
