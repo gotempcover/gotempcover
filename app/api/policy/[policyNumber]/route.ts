@@ -1,22 +1,24 @@
 // app/api/policy/[policyNumber]/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/db/prisma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: { policyNumber: string } }
-) {
+// Next.js 16: params is a Promise for dynamic route handlers
+type Ctx = { params: Promise<{ policyNumber: string }> };
+
+export async function GET(_req: NextRequest, { params }: Ctx) {
   try {
-    const policyNumber = String(params.policyNumber || "").trim().toUpperCase();
-    if (!policyNumber) {
+    const { policyNumber } = await params;
+
+    const cleaned = String(policyNumber || "").trim().toUpperCase();
+    if (!cleaned) {
       return NextResponse.json({ ok: false, error: "Missing policyNumber" }, { status: 400 });
     }
 
     const policy = await prisma.policy.findUnique({
-      where: { policyNumber },
+      where: { policyNumber: cleaned },
       include: {
         documents: true,
         events: { orderBy: { createdAt: "desc" }, take: 25 },
