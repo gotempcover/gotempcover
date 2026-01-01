@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Policy {
+  id               String   @id @default(cuid())
+  policyNumber     String   @unique
+
+  // Quote details
+  vrm              String
+  make             String?
+  model            String?
+  year             String?
+  startAt          DateTime
+  endAt            DateTime
+  durationMs       Int
+  totalAmountPence Int
+
+  // Customer
+  fullName         String
+  dob              DateTime
+  email            String
+  licenceType      String
+  address          String
+
+  // Payment (provider-agnostic)
+  paymentProvider  String
+  paymentId        String
+  paymentStatus    String
+  currency         String
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  documents        PolicyDocument[]
+  events           PolicyEvent[]
+
+  @@unique([paymentProvider, paymentId])
+}
+
+model PolicyDocument {
+  id         String   @id @default(cuid())
+  policyId   String
+  policy     Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  kind       String   // "certificate" | "schedule" | "terms"
+  filename   String
+  storageKey String?  // R2 key later
+  url        String?  // signed url later
+  createdAt  DateTime @default(now())
+}
+
+model PolicyEvent {
+  id        String   @id @default(cuid())
+  policyId  String
+  policy    Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  type      String   // "POLICY_CREATED" | "PAYMENT_CONFIRMED" | "DOCS_GENERATED" | "EMAIL_SENT"
+  data      Json?
+  createdAt DateTime @default(now())
+}
