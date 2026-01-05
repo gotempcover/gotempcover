@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 /**
  * Internal dev endpoint:
  * - POST with optional partial overrides
- * - Generates a PAID "test" payment and finalizes a policy (idempotent)
+ * - Generates a PAID "test_*" paymentId and finalizes a policy (idempotent)
  *
  * Usage (example):
  * fetch("/api/internal/policy/test-finalize", { method:"POST", headers:{'Content-Type':'application/json'}, body: JSON.stringify({ vrm:"MD15UOA" }) })
@@ -40,11 +40,16 @@ export async function POST(req: Request) {
       licenceType: overrides.licenceType ?? "UK",
       address: overrides.address ?? "1 Test Street, London, SW1A 1AA",
 
-      // Payment (provider-agnostic)
-      paymentProvider: overrides.paymentProvider ?? "test",
+      // Payment
+      // IMPORTANT: Prisma enum only allows STRIPE, so we always use STRIPE here.
+      // Still safe for dev because paymentId is fake and unique.
+      paymentProvider: "STRIPE",
       paymentId: overrides.paymentId ?? `test_${Date.now()}`,
       paymentStatus: overrides.paymentStatus ?? "PAID",
       currency: overrides.currency ?? "GBP",
+
+      // Optional: allow overriding Stripe PI for testing (if your type supports it)
+      stripePaymentIntentId: overrides.stripePaymentIntentId ?? null,
     };
 
     const result = await finalizePolicy(payload);
