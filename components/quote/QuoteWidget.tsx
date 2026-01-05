@@ -3,13 +3,19 @@
 import { useEffect, useMemo, useState } from "react";
 
 /* =========================================================
-   Quote Widget — Apple-level UX polish
+   Quote Widget — Apple-level UX polish (Mobile-friendly)
    ✅ Keeps your logic
    ✅ Step 2 gated until Step 1 is complete (VRM + vehicle basics)
    ✅ No auto-lookup
    ✅ Inline VRM formatting (display AB12 CDE, store AB12CDE)
    ✅ Ghost/light actions everywhere (per your rule)
    ✅ Compact Duration: tabs -> options panel -> auto-collapse after selection
+   ✅ Mobile polish:
+      1) overflow-x-hidden (prevents sideways scroll)
+      2) pb-32 for sticky CTA breathing room
+      3) iOS safe-area padding on sticky footer
+      4) snap scrolling tabs
+      + Step 2 collapsible w/ one-line summary
 ========================================================= */
 
 type DurationUnit = "hours" | "days" | "weeks" | "months";
@@ -114,6 +120,9 @@ export default function QuoteWidget({
   const [durationExpanded, setDurationExpanded] = useState(false);
 
   const requireDates = !compact || showDatesInCompact;
+
+  // ✅ NEW: Mobile collapsible Step 2 (Cover)
+  const [coverOpen, setCoverOpen] = useState(false);
 
   const normaliseVrm = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
 
@@ -244,9 +253,15 @@ export default function QuoteWidget({
     if (!step1Complete) {
       setDurationExpanded(false);
       setCustomOpen(false);
+      setCoverOpen(false);
       // We do NOT clear start/end automatically (keeps user input if they go back)
       // No logic changes; only collapses optional panels.
     }
+  }, [step1Complete]);
+
+  // ✅ When Step 1 completes, auto-open Step 2 on mobile (UI only)
+  useEffect(() => {
+    if (step1Complete) setCoverOpen(true);
   }, [step1Complete]);
 
   // ---------- Validations ----------
@@ -257,6 +272,27 @@ export default function QuoteWidget({
     const e = new Date(endAt).getTime();
     return Number.isFinite(s) && Number.isFinite(e) && e > s;
   }, [startAt, endAt, requireDates]);
+
+  // Step 2 collapsed summary (one-line)
+  const coverSummary = useMemo(() => {
+    if (!requireDates) return "";
+    if (!startAt || !endAt || !datesValid) return "Pick your start & end time";
+
+    const fmt = (iso: string) => {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return iso.replace("T", " ");
+
+      const now = new Date();
+      const isToday =
+        d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+
+      const day = isToday ? "Today" : d.toLocaleDateString(undefined, { weekday: "short" });
+      const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+      return `${day} ${time}`;
+    };
+
+    return `${fmt(startAt)} → ${fmt(endAt)}`;
+  }, [requireDates, startAt, endAt, datesValid]);
 
   // vrm is already normalized
   const canLookupNow = useMemo(() => vrm.length >= 5 && !loading, [vrm, loading]);
@@ -346,7 +382,8 @@ export default function QuoteWidget({
   }
 
   return (
-    <div>
+    // ✅ 1) Prevent horizontal overflow
+    <div className="relative overflow-x-hidden">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
         <div className="min-w-0">
@@ -354,16 +391,15 @@ export default function QuoteWidget({
             {compact ? "Quick quote" : "Get temporary cover in minutes"}
           </h3>
           <p className="mt-1 text-sm text-slate-600">
-            {compact
-              ? "Enter your reg, choose dates, then continue."
-              : "Enter your reg, confirm the vehicle, then choose exact cover times."}
+            {compact ? "Enter your reg, choose dates, then continue." : "Enter your reg, confirm the vehicle, then choose exact cover times."}
           </p>
         </div>
 
         {!compact ? <span className="badge">Secure</span> : null}
       </div>
 
-      <div className="mt-5 grid gap-4">
+      {/* ✅ 2) Extra bottom padding so content never sits behind sticky CTA */}
+      <div className="mt-5 grid gap-4 pb-32 sm:pb-0">
         {/* Step 1: Vehicle */}
         <div className="card p-5">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
@@ -431,10 +467,7 @@ export default function QuoteWidget({
               </button>
             </div>
 
-            <div
-              id="vrm-hint"
-              className="mt-2 flex flex-col sm:flex-row sm:items-center gap-2 text-[12px] text-slate-500"
-            >
+            <div id="vrm-hint" className="mt-2 flex flex-col sm:flex-row sm:items-center gap-2 text-[12px] text-slate-500">
               <span className="inline-flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
                 Press Enter or tap Confirm
@@ -452,9 +485,7 @@ export default function QuoteWidget({
               >
                 <div className="font-extrabold">We couldn’t fetch vehicle details</div>
                 <div className="mt-1">{lookupError}</div>
-                <div className="mt-2 text-[12px] text-red-700/80">
-                  No stress — enter your vehicle details manually below.
-                </div>
+                <div className="mt-2 text-[12px] text-red-700/80">No stress — enter your vehicle details manually below.</div>
               </div>
             ) : null}
 
@@ -463,9 +494,7 @@ export default function QuoteWidget({
               <div className="mt-4 card-soft px-4 py-3">
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
                   <div className="min-w-0">
-                    <div className="text-[11px] text-slate-500 font-semibold uppercase tracking-wide">
-                      Confirmed vehicle
-                    </div>
+                    <div className="text-[11px] text-slate-500 font-semibold uppercase tracking-wide">Confirmed vehicle</div>
                     <div className="mt-1 text-sm font-extrabold text-slate-900">{vehicleTitle}</div>
                     <div className="mt-1 text-[13px] text-slate-600">
                       {lookupColour ? lookupColour : null}
@@ -547,24 +576,40 @@ export default function QuoteWidget({
           ) : null}
         </div>
 
-        {/* Step 2: Cover (GATED) */}
+        {/* Step 2: Cover (GATED + MOBILE COLLAPSIBLE) */}
         {requireDates ? (
           <div className="card p-5">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="badge">Step 2</span>
                   <div className="text-sm font-extrabold text-slate-900">Cover</div>
                 </div>
 
                 <div className="mt-1 text-sm text-slate-600">
-                  {step1Complete
-                    ? "Choose exact start and end time — or select a duration."
-                    : "Complete Step 1 to unlock cover dates and duration."}
+                  {step1Complete ? "Choose exact start and end time — or select a duration." : "Complete Step 1 to unlock cover dates and duration."}
                 </div>
+
+                {/* ✅ Collapsed one-line summary on mobile */}
+                {step1Complete && !coverOpen ? (
+                  <div className="mt-2 sm:hidden">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[12px] font-semibold text-slate-700">
+                      {coverSummary}
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
-              <span className="badge">{step1Complete ? "Exact times" : "Locked"}</span>
+              <div className="flex items-center gap-2">
+                <span className="badge">{step1Complete ? "Exact times" : "Locked"}</span>
+
+                {/* Mobile toggle (only when unlocked) */}
+                {step1Complete ? (
+                  <button type="button" onClick={() => setCoverOpen((v) => !v)} className="btn-ghost btn-sm sm:hidden">
+                    {coverOpen ? "Hide" : "Edit"}
+                  </button>
+                ) : null}
+              </div>
             </div>
 
             {/* Locked panel */}
@@ -594,16 +639,59 @@ export default function QuoteWidget({
               <>
                 <div className="mt-4 h-px w-full bg-slate-200/70" />
 
-                {/* Date inputs first (primary path) */}
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="label">Start date & time</label>
-                    <input
-                      type="datetime-local"
-                      className="input"
-                      value={startAt}
-                      onChange={(e) => {
-                        const v = e.target.value;
+                {/* Mobile collapsible body (desktop always open) */}
+                <div className={`${coverOpen ? "block" : "hidden"} sm:block`}>
+                  {/* Date inputs first (primary path) */}
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="label">Start date & time</label>
+                      <input
+                        type="datetime-local"
+                        className="input"
+                        value={startAt}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setStartAt(v);
+                          setFormError(null);
+
+                          if (durationPreset) {
+                            const computed = applyPreset(v, durationPreset);
+                            if (computed) setEndAt(computed);
+                          } else if (customDurationValue) {
+                            const computed = applyCustomDuration(v, customDurationValue, customDurationUnit);
+                            if (computed) setEndAt(computed);
+                          }
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="label">End date & time</label>
+                      <input
+                        type="datetime-local"
+                        className="input"
+                        value={endAt}
+                        onChange={(e) => {
+                          setEndAt(e.target.value);
+                          setFormError(null);
+                          if (durationPreset) setDurationPreset("");
+                        }}
+                      />
+                    </div>
+
+                    {!datesValid && startAt && endAt ? (
+                      <div className="sm:col-span-2 field-error">End date/time must be after start date/time.</div>
+                    ) : null}
+                  </div>
+
+                  {/* Quick actions (mobile: horizontal scroller prevents giant wrapping height) */}
+                  <div className="mt-4 -mx-1 flex gap-2 overflow-x-auto no-scrollbar px-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const now = new Date();
+                        now.setMinutes(Math.ceil(now.getMinutes() / 5) * 5, 0, 0);
+                        const v = toDatetimeLocalValue(now);
                         setStartAt(v);
                         setFormError(null);
 
@@ -615,263 +703,225 @@ export default function QuoteWidget({
                           if (computed) setEndAt(computed);
                         }
                       }}
-                    />
-                  </div>
+                      className="btn-ghost btn-sm shrink-0"
+                    >
+                      Start now
+                    </button>
 
-                  <div>
-                    <label className="label">End date & time</label>
-                    <input
-                      type="datetime-local"
-                      className="input"
-                      value={endAt}
-                      onChange={(e) => {
-                        setEndAt(e.target.value);
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStartAt("");
+                        setEndAt("");
+                        setDurationPreset("");
+                        setCustomDurationValue("");
+                        setCustomOpen(false);
+                        setDurationExpanded(false);
                         setFormError(null);
-                        if (durationPreset) setDurationPreset("");
                       }}
-                    />
+                      className="btn-ghost btn-sm shrink-0"
+                    >
+                      Clear
+                    </button>
                   </div>
 
-                  {!datesValid && startAt && endAt ? (
-                    <div className="sm:col-span-2 field-error">End date/time must be after start date/time.</div>
-                  ) : null}
-                </div>
-
-                {/* Quick actions */}
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const now = new Date();
-                      now.setMinutes(Math.ceil(now.getMinutes() / 5) * 5, 0, 0);
-                      const v = toDatetimeLocalValue(now);
-                      setStartAt(v);
-                      setFormError(null);
-
-                      if (durationPreset) {
-                        const computed = applyPreset(v, durationPreset);
-                        if (computed) setEndAt(computed);
-                      } else if (customDurationValue) {
-                        const computed = applyCustomDuration(v, customDurationValue, customDurationUnit);
-                        if (computed) setEndAt(computed);
-                      }
-                    }}
-                    className="btn-ghost btn-sm"
-                  >
-                    Start now
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStartAt("");
-                      setEndAt("");
-                      setDurationPreset("");
-                      setCustomDurationValue("");
-                      setCustomOpen(false);
-                      setDurationExpanded(false);
-                      setFormError(null);
-                    }}
-                    className="btn-ghost btn-sm"
-                  >
-                    Clear
-                  </button>
-                </div>
-
-                {/* Duration selector (compact + ghost/light) */}
-                <div className="mt-5 card-soft p-4">
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-                    <div>
-                      <div className="text-xs font-extrabold uppercase tracking-wide text-slate-600">Quick duration</div>
-                      <div className="mt-1 text-sm text-slate-600">Choose a duration to auto-fill your end time.</div>
-                    </div>
-                    <span className="badge">Auto-fill</span>
-                  </div>
-
-                  <div className="mt-4">
-                    {/* Tabs row + toggle */}
-                    <div className="flex w-full flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                      <div className="inline-flex max-w-full overflow-x-auto no-scrollbar rounded-full border border-slate-200 bg-white p-1">
-                        {(
-                          [
-                            { k: "hours", label: "Hourly" },
-                            { k: "days", label: "Daily" },
-                            { k: "weeks", label: "Weekly" },
-                            { k: "months", label: "Monthly" },
-                          ] as const
-                        ).map((t) => {
-                          const active = durationMode === t.k;
-                          return (
-                            <button
-                              key={t.k}
-                              type="button"
-                              onClick={() => {
-                                setDurationMode(t.k);
-                                setDurationExpanded(true); // open automatically on tab tap
-                                setCustomOpen(false);
-                                setFormError(null);
-                              }}
-                              className={[
-                                "h-9 rounded-full px-4 text-[12px] font-extrabold transition whitespace-nowrap",
-                                "border",
-                                active
-                                  ? "bg-sky-50 text-slate-900 border-sky-200 ring-2 ring-sky-200/60"
-                                  : "bg-white text-slate-700 border-transparent hover:bg-slate-50 hover:border-slate-200",
-                              ].join(" ")}
-                            >
-                              {t.label}
-                            </button>
-                          );
-                        })}
+                  {/* Duration selector (compact + ghost/light) */}
+                  <div className="mt-5 card-soft p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                      <div>
+                        <div className="text-xs font-extrabold uppercase tracking-wide text-slate-600">Quick duration</div>
+                        <div className="mt-1 text-sm text-slate-600">Choose a duration to auto-fill your end time.</div>
                       </div>
-
-                      <div className="flex items-center justify-between sm:justify-end gap-2">
-                        <span className="hidden sm:inline text-[12px] text-slate-500">
-                          {startAt ? "Select a duration." : "Set a start time first."}
-                        </span>
-
-                        <button type="button" onClick={() => setDurationExpanded((v) => !v)} className="btn-ghost btn-sm">
-                          {durationExpanded ? "Hide" : "Options"}
-                        </button>
-                      </div>
+                      <span className="badge">Auto-fill</span>
                     </div>
 
-                    {/* Expanded panel */}
-                    {durationExpanded ? (
-                      <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {DURATION_OPTIONS[durationMode].map((opt) => {
-                            const active = durationPreset === opt.key;
-                            const disabled = !startAt;
-
+                    <div className="mt-4">
+                      {/* Tabs row + toggle */}
+                      <div className="flex w-full flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        {/* ✅ 4) Snap scrolling tabs */}
+                        <div className="inline-flex max-w-full overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory rounded-full border border-slate-200 bg-white p-1">
+                          {(
+                            [
+                              { k: "hours", label: "Hourly" },
+                              { k: "days", label: "Daily" },
+                              { k: "weeks", label: "Weekly" },
+                              { k: "months", label: "Monthly" },
+                            ] as const
+                          ).map((t) => {
+                            const active = durationMode === t.k;
                             return (
                               <button
-                                key={opt.key}
+                                key={t.k}
                                 type="button"
-                                disabled={disabled}
                                 onClick={() => {
-                                  if (!startAt) return;
-
-                                  const nextPreset = durationPreset === opt.key ? "" : opt.key;
-
-                                  setDurationPreset(nextPreset);
+                                  setDurationMode(t.k);
+                                  setDurationExpanded(true); // open automatically on tab tap
                                   setCustomOpen(false);
                                   setFormError(null);
-
-                                  const computed = applyPreset(startAt, nextPreset as any);
-                                  if (computed) setEndAt(computed);
-
-                                  // Auto-collapse after choosing
-                                  setDurationExpanded(false);
                                 }}
                                 className={[
-                                  "h-9 rounded-full border px-3 text-[12px] font-extrabold transition",
-                                  disabled
-                                    ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
-                                    : active
-                                    ? "border-sky-300 bg-sky-50 text-slate-900 ring-2 ring-sky-200/60"
-                                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                                  // ✅ snap-start for each tab
+                                  "h-9 rounded-full px-4 text-[12px] font-extrabold transition whitespace-nowrap snap-start",
+                                  "border",
+                                  active
+                                    ? "bg-sky-50 text-slate-900 border-sky-200 ring-2 ring-sky-200/60"
+                                    : "bg-white text-slate-700 border-transparent hover:bg-slate-50 hover:border-slate-200",
                                 ].join(" ")}
                               >
-                                {opt.label}
+                                {t.label}
                               </button>
                             );
                           })}
-
-                          {/* Custom toggle as a chip */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCustomOpen((v) => !v);
-                              setFormError(null);
-                            }}
-                            className={[
-                              "h-9 rounded-full border px-3 text-[12px] font-extrabold transition",
-                              customOpen
-                                ? "border-sky-300 bg-sky-50 text-slate-900 ring-2 ring-sky-200/60"
-                                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-                            ].join(" ")}
-                          >
-                            Custom
-                          </button>
                         </div>
 
-                        {/* Custom row */}
-                        {customOpen ? (
-                          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-[140px_180px_auto] items-end">
-                            <div>
-                              <label className="label">Value</label>
-                              <input
-                                className="input h-[44px]"
-                                inputMode="numeric"
-                                placeholder="e.g. 10"
-                                value={customDurationValue}
-                                onChange={(e) => {
-                                  setCustomDurationValue(e.target.value.replace(/[^0-9]/g, "").slice(0, 3));
-                                  setDurationPreset("");
-                                  setFormError(null);
-                                }}
-                              />
-                            </div>
+                        <div className="flex items-center justify-between sm:justify-end gap-2">
+                          <span className="hidden sm:inline text-[12px] text-slate-500">
+                            {startAt ? "Select a duration." : "Set a start time first."}
+                          </span>
 
-                            <div>
-                              <label className="label">Unit</label>
-                              <select
-                                className="input h-[44px]"
-                                value={customDurationUnit}
-                                onChange={(e) => {
-                                  setCustomDurationUnit(e.target.value as any);
-                                  setDurationPreset("");
-                                  setFormError(null);
-                                }}
-                              >
-                                <option value="hours">Hours</option>
-                                <option value="days">Days</option>
-                                <option value="weeks">Weeks</option>
-                                <option value="months">Months</option>
-                              </select>
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const computed = applyCustomDuration(startAt, customDurationValue, customDurationUnit);
-                                  if (computed) setEndAt(computed);
-                                  setDurationExpanded(false); // collapse after apply
-                                }}
-                                disabled={!startAt || !applyCustomDuration(startAt, customDurationValue, customDurationUnit)}
-                                className={[
-                                  "btn-ghost btn-sm",
-                                  !startAt || !applyCustomDuration(startAt, customDurationValue, customDurationUnit)
-                                    ? "opacity-60 cursor-not-allowed"
-                                    : "",
-                                ].join(" ")}
-                              >
-                                Apply
-                              </button>
-
-                              <span className="text-[12px] text-slate-500">
-                                {startAt ? "Auto-fills end time." : "Set a start time first."}
-                              </span>
-                            </div>
-                          </div>
-                        ) : null}
+                          <button type="button" onClick={() => setDurationExpanded((v) => !v)} className="btn-ghost btn-sm">
+                            {durationExpanded ? "Hide" : "Options"}
+                          </button>
+                        </div>
                       </div>
-                    ) : null}
-                  </div>
-                </div>
 
-                {/* Summary */}
-                {startAt && endAt && datesValid ? (
-                  <div className="mt-4 card-soft px-4 py-3">
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Cover period</div>
-                    <div className="mt-1 text-sm font-extrabold text-slate-900">
-                      {startAt.replace("T", " ")} → {endAt.replace("T", " ")}
+                      {/* Expanded panel */}
+                      {durationExpanded ? (
+                        <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {DURATION_OPTIONS[durationMode].map((opt) => {
+                              const active = durationPreset === opt.key;
+                              const disabled = !startAt;
+
+                              return (
+                                <button
+                                  key={opt.key}
+                                  type="button"
+                                  disabled={disabled}
+                                  onClick={() => {
+                                    if (!startAt) return;
+
+                                    const nextPreset = durationPreset === opt.key ? "" : opt.key;
+
+                                    setDurationPreset(nextPreset);
+                                    setCustomOpen(false);
+                                    setFormError(null);
+
+                                    const computed = applyPreset(startAt, nextPreset as any);
+                                    if (computed) setEndAt(computed);
+
+                                    // Auto-collapse after choosing
+                                    setDurationExpanded(false);
+                                  }}
+                                  className={[
+                                    "h-9 rounded-full border px-3 text-[12px] font-extrabold transition",
+                                    disabled
+                                      ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
+                                      : active
+                                      ? "border-sky-300 bg-sky-50 text-slate-900 ring-2 ring-sky-200/60"
+                                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                                  ].join(" ")}
+                                >
+                                  {opt.label}
+                                </button>
+                              );
+                            })}
+
+                            {/* Custom toggle as a chip */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCustomOpen((v) => !v);
+                                setFormError(null);
+                              }}
+                              className={[
+                                "h-9 rounded-full border px-3 text-[12px] font-extrabold transition",
+                                customOpen
+                                  ? "border-sky-300 bg-sky-50 text-slate-900 ring-2 ring-sky-200/60"
+                                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                              ].join(" ")}
+                            >
+                              Custom
+                            </button>
+                          </div>
+
+                          {/* Custom row */}
+                          {customOpen ? (
+                            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-[140px_180px_auto] items-end">
+                              <div>
+                                <label className="label">Value</label>
+                                <input
+                                  className="input h-[44px]"
+                                  inputMode="numeric"
+                                  placeholder="e.g. 10"
+                                  value={customDurationValue}
+                                  onChange={(e) => {
+                                    setCustomDurationValue(e.target.value.replace(/[^0-9]/g, "").slice(0, 3));
+                                    setDurationPreset("");
+                                    setFormError(null);
+                                  }}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="label">Unit</label>
+                                <select
+                                  className="input h-[44px]"
+                                  value={customDurationUnit}
+                                  onChange={(e) => {
+                                    setCustomDurationUnit(e.target.value as any);
+                                    setDurationPreset("");
+                                    setFormError(null);
+                                  }}
+                                >
+                                  <option value="hours">Hours</option>
+                                  <option value="days">Days</option>
+                                  <option value="weeks">Weeks</option>
+                                  <option value="months">Months</option>
+                                </select>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const computed = applyCustomDuration(startAt, customDurationValue, customDurationUnit);
+                                    if (computed) setEndAt(computed);
+                                    setDurationExpanded(false); // collapse after apply
+                                  }}
+                                  disabled={!startAt || !applyCustomDuration(startAt, customDurationValue, customDurationUnit)}
+                                  className={[
+                                    "btn-ghost btn-sm",
+                                    !startAt || !applyCustomDuration(startAt, customDurationValue, customDurationUnit)
+                                      ? "opacity-60 cursor-not-allowed"
+                                      : "",
+                                  ].join(" ")}
+                                >
+                                  Apply
+                                </button>
+
+                                <span className="text-[12px] text-slate-500">
+                                  {startAt ? "Auto-fills end time." : "Set a start time first."}
+                                </span>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
-                    <div className="mt-1 field-hint">You’ll confirm details on the next step before payment.</div>
                   </div>
-                ) : null}
+
+                  {/* Summary */}
+                  {startAt && endAt && datesValid ? (
+                    <div className="mt-4 card-soft px-4 py-3">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Cover period</div>
+                      <div className="mt-1 text-sm font-extrabold text-slate-900">
+                        {startAt.replace("T", " ")} → {endAt.replace("T", " ")}
+                      </div>
+                      <div className="mt-1 field-hint">You’ll confirm details on the next step before payment.</div>
+                    </div>
+                  ) : null}
+                </div>
               </>
             )}
           </div>
@@ -885,15 +935,17 @@ export default function QuoteWidget({
           </div>
         ) : null}
 
-        {/* Primary CTA */}
-        <button
-          type="button"
-          onClick={goToQuote}
-          className={`btn-primary w-full ${!canContinue ? "opacity-60 cursor-not-allowed" : ""}`}
-          disabled={!canContinue}
-        >
-          Continue
-        </button>
+        {/* Desktop Primary CTA (kept) */}
+        <div className="hidden sm:block">
+          <button
+            type="button"
+            onClick={goToQuote}
+            className={`btn-primary w-full ${!canContinue ? "opacity-60 cursor-not-allowed" : ""}`}
+            disabled={!canContinue}
+          >
+            Continue
+          </button>
+        </div>
 
         {/* Trust strip */}
         {!compact ? (
@@ -912,6 +964,30 @@ export default function QuoteWidget({
             </div>
           </div>
         ) : null}
+      </div>
+
+      {/* ✅ Sticky mobile CTA */}
+      <div
+        className={[
+          "sm:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/90 backdrop-blur",
+          // ✅ 3) iOS safe-area padding
+          "pb-[env(safe-area-inset-bottom)]",
+        ].join(" ")}
+      >
+        <div className="mx-auto max-w-xl px-4 py-3">
+          <button
+            type="button"
+            onClick={goToQuote}
+            className={`btn-primary w-full ${!canContinue ? "opacity-60 cursor-not-allowed" : ""}`}
+            disabled={!canContinue}
+          >
+            Continue
+          </button>
+
+          {!canContinue ? (
+            <div className="mt-2 text-[11px] text-slate-500">Complete Step 1 + pick valid dates to continue.</div>
+          ) : null}
+        </div>
       </div>
     </div>
   );

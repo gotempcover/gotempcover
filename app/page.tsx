@@ -615,19 +615,20 @@ function AuroraOrbs() {
 function HeroImageCard() {
   return (
     <div className="mt-5 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/40">
-      <div className="relative aspect-[16/12] w-full">
+      <div className="relative aspect-[4/5] sm:aspect-[16/12] w-full">
         <Image
           src="/images/hero-car.jpg"
           alt="Car driving in city — GoTempCover temporary insurance"
           fill
           priority
           sizes="(min-width: 1024px) 44vw, 100vw"
-          className="object-cover"
+          className="object-cover object-[35%_50%] sm:object-center"
         />
       </div>
     </div>
   );
 }
+
 
 /* =========================================================
    How it works panel
