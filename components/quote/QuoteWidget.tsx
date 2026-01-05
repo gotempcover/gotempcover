@@ -348,7 +348,7 @@ export default function QuoteWidget({
   return (
     <div>
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-nowrap">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
         <div className="min-w-0">
           <h3 className="text-base sm:text-lg font-extrabold tracking-tight">
             {compact ? "Quick quote" : "Get temporary cover in minutes"}
@@ -366,7 +366,7 @@ export default function QuoteWidget({
       <div className="mt-5 grid gap-4">
         {/* Step 1: Vehicle */}
         <div className="card p-5">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
             <div>
               <div className="flex items-center gap-2">
                 <span className="badge">Step 1</span>
@@ -385,7 +385,8 @@ export default function QuoteWidget({
               Vehicle registration
             </label>
 
-            <div className="flex w-full flex-nowrap items-stretch gap-1">
+            {/* Mobile: stack input + button. Desktop: row. */}
+            <div className="flex w-full flex-col sm:flex-row items-stretch gap-2">
               <input
                 id="vrm"
                 className="input flex-1 min-w-0 vrm-display"
@@ -418,7 +419,8 @@ export default function QuoteWidget({
                 onClick={() => lookupVehicle(vrm)}
                 disabled={!canLookupNow}
                 className={[
-                  "shrink-0 w-[132px] h-[46px] rounded-xl px-4 text-xs font-extrabold transition",
+                  "shrink-0 h-[46px] rounded-xl px-4 text-xs font-extrabold transition",
+                  "w-full sm:w-[132px]",
                   canLookupNow
                     ? "bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 active:bg-slate-50"
                     : "bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed",
@@ -429,13 +431,16 @@ export default function QuoteWidget({
               </button>
             </div>
 
-            <div id="vrm-hint" className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-slate-500">
+            <div
+              id="vrm-hint"
+              className="mt-2 flex flex-col sm:flex-row sm:items-center gap-2 text-[12px] text-slate-500"
+            >
               <span className="inline-flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
                 Press Enter or tap Confirm
               </span>
 
-              <button type="button" onClick={toggleManualMode} className="ml-auto btn-ghost btn-sm">
+              <button type="button" onClick={toggleManualMode} className="sm:ml-auto btn-ghost btn-sm">
                 {manualMode ? "Hide details" : "Edit details"}
               </button>
             </div>
@@ -447,14 +452,16 @@ export default function QuoteWidget({
               >
                 <div className="font-extrabold">We couldn’t fetch vehicle details</div>
                 <div className="mt-1">{lookupError}</div>
-                <div className="mt-2 text-[12px] text-red-700/80">No stress — enter your vehicle details manually below.</div>
+                <div className="mt-2 text-[12px] text-red-700/80">
+                  No stress — enter your vehicle details manually below.
+                </div>
               </div>
             ) : null}
 
             {/* Vehicle summary */}
             {vehicle ? (
               <div className="mt-4 card-soft px-4 py-3">
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
                   <div className="min-w-0">
                     <div className="text-[11px] text-slate-500 font-semibold uppercase tracking-wide">
                       Confirmed vehicle
@@ -476,7 +483,7 @@ export default function QuoteWidget({
           {/* Manual details */}
           {manualMode ? (
             <div className="mt-4 card-soft p-4">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
                 <div>
                   <div className="text-sm font-extrabold text-slate-900">Manual vehicle details</div>
                   <p className="mt-1 text-sm text-slate-600">Only make + model are needed to continue.</p>
@@ -484,7 +491,7 @@ export default function QuoteWidget({
                 <span className="badge">Manual</span>
               </div>
 
-              <div className="mt-4 grid gap-4 sm:grid-cols-3">
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div>
                   <label className="label" htmlFor="make">
                     Make
@@ -535,9 +542,7 @@ export default function QuoteWidget({
                 </div>
               </div>
 
-              {!manualBasicsComplete ? (
-                <div className="mt-3 field-hint">Tip: Make + Model is enough to continue.</div>
-              ) : null}
+              {!manualBasicsComplete ? <div className="mt-3 field-hint">Tip: Make + Model is enough to continue.</div> : null}
             </div>
           ) : null}
         </div>
@@ -545,7 +550,7 @@ export default function QuoteWidget({
         {/* Step 2: Cover (GATED) */}
         {requireDates ? (
           <div className="card p-5">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="badge">Step 2</span>
@@ -675,7 +680,7 @@ export default function QuoteWidget({
 
                 {/* Duration selector (compact + ghost/light) */}
                 <div className="mt-5 card-soft p-4">
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
                     <div>
                       <div className="text-xs font-extrabold uppercase tracking-wide text-slate-600">Quick duration</div>
                       <div className="mt-1 text-sm text-slate-600">Choose a duration to auto-fill your end time.</div>
@@ -685,8 +690,8 @@ export default function QuoteWidget({
 
                   <div className="mt-4">
                     {/* Tabs row + toggle */}
-                    <div className="inline-flex w-full flex-wrap items-center justify-between gap-2">
-                      <div className="inline-flex rounded-full border border-slate-200 bg-white p-1">
+                    <div className="flex w-full flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="inline-flex max-w-full overflow-x-auto no-scrollbar rounded-full border border-slate-200 bg-white p-1">
                         {(
                           [
                             { k: "hours", label: "Hourly" },
@@ -707,7 +712,7 @@ export default function QuoteWidget({
                                 setFormError(null);
                               }}
                               className={[
-                                "h-9 rounded-full px-4 text-[12px] font-extrabold transition",
+                                "h-9 rounded-full px-4 text-[12px] font-extrabold transition whitespace-nowrap",
                                 "border",
                                 active
                                   ? "bg-sky-50 text-slate-900 border-sky-200 ring-2 ring-sky-200/60"
@@ -720,16 +725,12 @@ export default function QuoteWidget({
                         })}
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-between sm:justify-end gap-2">
                         <span className="hidden sm:inline text-[12px] text-slate-500">
                           {startAt ? "Select a duration." : "Set a start time first."}
                         </span>
 
-                        <button
-                          type="button"
-                          onClick={() => setDurationExpanded((v) => !v)}
-                          className="btn-ghost btn-sm"
-                        >
+                        <button type="button" onClick={() => setDurationExpanded((v) => !v)} className="btn-ghost btn-sm">
                           {durationExpanded ? "Hide" : "Options"}
                         </button>
                       </div>
@@ -797,7 +798,7 @@ export default function QuoteWidget({
 
                         {/* Custom row */}
                         {customOpen ? (
-                          <div className="mt-3 grid gap-3 sm:grid-cols-[140px_180px_auto] items-end">
+                          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-[140px_180px_auto] items-end">
                             <div>
                               <label className="label">Value</label>
                               <input

@@ -222,6 +222,16 @@ a,
   );
 }
 
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE/Edge Legacy */
+  scrollbar-width: none;    /* Firefox */
+}
+
+
+
 /* =========================================================
    Fintech gradient background
 ========================================================= */
