@@ -1,26 +1,31 @@
-// lib/policy/types.ts
+import type {
+  PaymentProvider,
+  PaymentStatus,
+} from "@prisma/client";
+
 export type PolicyFinalizeInput = {
-  // quote (from your get-quote page / checkout payload)
+  // quote
   vrm: string;
   make?: string | null;
   model?: string | null;
   year?: string | null;
-  startAt: string; // ISO
-  endAt: string; // ISO
+  startAt: string;
+  endAt: string;
   durationMs: number;
   totalAmountPence: number;
 
   // customer
   fullName: string;
-  dob: string; // ISO date (YYYY-MM-DD or full ISO)
+  dob: string;
   email: string;
-  licenceType: "UK" | "International" | "Learner" | string;
+  licenceType: "UK" | "International" | "Learner";
   address: string;
 
-  // payment (provider-agnostic)
-  paymentProvider: "stripe" | "btcpay" | "manual" | "test" | string;
-  paymentId: string;
-  paymentStatus: "PAID" | "PENDING" | "FAILED" | "REFUNDED" | string;
+  // payment (STRICT, matches Prisma)
+  paymentProvider: PaymentProvider;   // ← enum
+  paymentId: string;                  // Stripe session id
+  paymentStatus: PaymentStatus;       // ← enum
+  stripePaymentIntentId?: string | null;
 
   currency?: string; // default GBP
 };

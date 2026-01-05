@@ -3,10 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 
 /* =========================================================
-   Quote Widget — Agency-grade UX
-   - Progressive disclosure (Vehicle → Cover)
-   - Clean duration selector + optional custom drawer
-   - Ghost/light actions everywhere (per your rule)
+   Quote Widget — Apple-level UX polish
+   ✅ Keeps your logic
+   ✅ Step 2 gated until Step 1 is complete (VRM + vehicle basics)
+   ✅ No auto-lookup
+   ✅ Inline VRM formatting (display AB12 CDE, store AB12CDE)
+   ✅ Ghost/light actions everywhere (per your rule)
+   ✅ Compact Duration: tabs -> options panel -> auto-collapse after selection
 ========================================================= */
 
 type DurationUnit = "hours" | "days" | "weeks" | "months";
@@ -28,6 +31,9 @@ type DurationPreset =
   | "2m"
   | "3m";
 
+type DurationMode = "hours" | "days" | "weeks" | "months";
+
+// Presets (kept mainly to support applyPreset/presetToMs mapping)
 const PRESETS: Array<{ key: DurationPreset; label: string; group: "Hours" | "Days" | "Weeks" | "Months" }> = [
   { key: "1h", label: "1h", group: "Hours" },
   { key: "3h", label: "3h", group: "Hours" },
@@ -49,6 +55,33 @@ const PRESETS: Array<{ key: DurationPreset; label: string; group: "Hours" | "Day
   { key: "3m", label: "3 months", group: "Months" },
 ];
 
+// Compact options shown when expanded (curated — not clunky)
+const DURATION_OPTIONS: Record<DurationMode, Array<{ key: DurationPreset; label: string }>> = {
+  hours: [
+    { key: "1h", label: "1h" },
+    { key: "3h", label: "3h" },
+    { key: "6h", label: "6h" },
+    { key: "12h", label: "12h" },
+  ],
+  days: [
+    { key: "1d", label: "1 day" },
+    { key: "2d", label: "2 days" },
+    { key: "3d", label: "3 days" },
+    { key: "7d", label: "7 days" },
+    { key: "14d", label: "14 days" },
+  ],
+  weeks: [
+    { key: "1w", label: "1 week" },
+    { key: "2w", label: "2 weeks" },
+    { key: "4w", label: "4 weeks" },
+  ],
+  months: [
+    { key: "1m", label: "1 month" },
+    { key: "2m", label: "2 months" },
+    { key: "3m", label: "3 months" },
+  ],
+};
+
 export default function QuoteWidget({
   compact,
   showDatesInCompact = true,
@@ -56,7 +89,7 @@ export default function QuoteWidget({
   compact?: boolean;
   showDatesInCompact?: boolean;
 }) {
-  const [vrm, setVrm] = useState("");
+  const [vrm, setVrm] = useState(""); // stored normalized (no spaces)
   const [loading, setLoading] = useState(false);
 
   const [vehicle, setVehicle] = useState<any>(null);
@@ -76,10 +109,21 @@ export default function QuoteWidget({
   const [customDurationValue, setCustomDurationValue] = useState<string>("");
   const [customDurationUnit, setCustomDurationUnit] = useState<DurationUnit>("days");
 
+  // Compact duration UI state
+  const [durationMode, setDurationMode] = useState<DurationMode>("hours");
+  const [durationExpanded, setDurationExpanded] = useState(false);
+
   const requireDates = !compact || showDatesInCompact;
 
-  const normaliseVrm = (value: string) =>
-    value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+  const normaliseVrm = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+
+  // Display formatting: AB12 CDE (store AB12CDE)
+  const formatVrm = (normalized: string) => {
+    const s = normaliseVrm(normalized);
+    if (s.length <= 4) return s;
+    return `${s.slice(0, 4)} ${s.slice(4)}`;
+  };
+  const vrmDisplay = useMemo(() => formatVrm(vrm), [vrm]);
 
   // ---------- Vehicle summary ----------
   const lookupMake = vehicle?.make || "";
@@ -96,6 +140,9 @@ export default function QuoteWidget({
 
   const manualBasicsComplete = Boolean(manualMake.trim() && manualModel.trim());
   const hasChosenVehicleBasics = manualMode ? manualBasicsComplete : hasLookupBasics || manualBasicsComplete;
+
+  // ✅ Step gating (UI only)
+  const step1Complete = vrm.length >= 5 && hasChosenVehicleBasics;
 
   // ---------- Date helpers ----------
   function toDatetimeLocalValue(d: Date) {
@@ -192,6 +239,16 @@ export default function QuoteWidget({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [durationPreset, startAt, requireDates]);
 
+  // ✅ When Step 1 becomes incomplete again (e.g. VRM edited), collapse Step 2 UI bits (UI only)
+  useEffect(() => {
+    if (!step1Complete) {
+      setDurationExpanded(false);
+      setCustomOpen(false);
+      // We do NOT clear start/end automatically (keeps user input if they go back)
+      // No logic changes; only collapses optional panels.
+    }
+  }, [step1Complete]);
+
   // ---------- Validations ----------
   const datesValid = useMemo(() => {
     if (!requireDates) return true;
@@ -201,15 +258,13 @@ export default function QuoteWidget({
     return Number.isFinite(s) && Number.isFinite(e) && e > s;
   }, [startAt, endAt, requireDates]);
 
-  const canLookupNow = useMemo(() => {
-    const clean = normaliseVrm(vrm);
-    return clean.length >= 5 && !loading;
-  }, [vrm, loading]);
+  // vrm is already normalized
+  const canLookupNow = useMemo(() => vrm.length >= 5 && !loading, [vrm, loading]);
 
   const canContinue = useMemo(() => {
-    const clean = normaliseVrm(vrm).length >= 5;
+    const cleanOk = vrm.length >= 5;
     const hasDates = !requireDates ? true : Boolean(startAt && endAt);
-    return Boolean(clean && hasChosenVehicleBasics && hasDates && datesValid);
+    return Boolean(cleanOk && hasChosenVehicleBasics && hasDates && datesValid);
   }, [vrm, requireDates, startAt, endAt, datesValid, hasChosenVehicleBasics]);
 
   const vehicleTitle = useMemo(() => {
@@ -259,7 +314,7 @@ export default function QuoteWidget({
 
   function buildQuoteDraft() {
     return {
-      vrm: normaliseVrm(vrm),
+      vrm, // stored normalized
       make: chosenMake || "",
       model: chosenModel || "",
       year: chosenYear || "",
@@ -290,23 +345,13 @@ export default function QuoteWidget({
     setFormError(null);
   }
 
-  // ---------- UI: grouped presets ----------
-  const presetGroups = useMemo(() => {
-    const groups: Record<string, Array<{ key: DurationPreset; label: string }>> = {};
-    for (const p of PRESETS) {
-      groups[p.group] ??= [];
-      groups[p.group].push({ key: p.key, label: p.label });
-    }
-    return groups;
-  }, []);
-
   return (
     <div>
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 flex-nowrap">
         <div className="min-w-0">
           <h3 className="text-base sm:text-lg font-extrabold tracking-tight">
-            {compact ? "Quick quote" : "Get a price in minutes"}
+            {compact ? "Quick quote" : "Get temporary cover in minutes"}
           </h3>
           <p className="mt-1 text-sm text-slate-600">
             {compact
@@ -314,35 +359,38 @@ export default function QuoteWidget({
               : "Enter your reg, confirm the vehicle, then choose exact cover times."}
           </p>
         </div>
+
+        {!compact ? <span className="badge">Secure</span> : null}
       </div>
 
       <div className="mt-5 grid gap-4">
         {/* Step 1: Vehicle */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="card p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Step 1
+              <div className="flex items-center gap-2">
+                <span className="badge">Step 1</span>
+                <div className="text-sm font-extrabold text-slate-900">Vehicle</div>
               </div>
-              <div className="mt-1 text-sm font-extrabold text-slate-900">Vehicle</div>
-              <div className="mt-1 text-sm text-slate-600">
-                We’ll try to fetch the basics from your registration.
-              </div>
+              <div className="mt-1 text-sm text-slate-600">We’ll fetch your vehicle details from your registration.</div>
             </div>
-            <span className="badge">Reg lookup</span>
+
+            <span className="badge">{vehicle ? (hasLookupBasics ? "Verified" : "Partial") : "Enter Reg"}</span>
           </div>
+
+          <div className="mt-4 h-px w-full bg-slate-200/70" />
 
           <div className="mt-4">
             <label className="label" htmlFor="vrm">
               Vehicle registration
             </label>
 
-            <div className="flex w-full flex-nowrap items-stretch gap-2">
+            <div className="flex w-full flex-nowrap items-stretch gap-1">
               <input
                 id="vrm"
-                className="input flex-1 min-w-0"
+                className="input flex-1 min-w-0 vrm-display"
                 placeholder="e.g. AB12 CDE"
-                value={vrm}
+                value={vrmDisplay}
                 onChange={(e) => {
                   const next = normaliseVrm(e.target.value);
                   setVrm(next);
@@ -353,7 +401,7 @@ export default function QuoteWidget({
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    if (canLookupNow) lookupVehicle(normaliseVrm(vrm));
+                    if (canLookupNow) lookupVehicle(vrm); // already normalized
                   }
                 }}
                 autoCapitalize="characters"
@@ -361,38 +409,34 @@ export default function QuoteWidget({
                 inputMode="text"
                 spellCheck={false}
                 aria-invalid={!!lookupError}
-                aria-describedby={lookupError ? "vrm-error" : undefined}
+                aria-describedby={lookupError ? "vrm-error" : "vrm-hint"}
               />
 
               {/* Ghost/light Lookup button (never dark) */}
               <button
                 type="button"
-                onClick={() => lookupVehicle(normaliseVrm(vrm))}
+                onClick={() => lookupVehicle(vrm)}
                 disabled={!canLookupNow}
                 className={[
-                  "shrink-0 w-[120px] h-[46px] rounded-xl px-4 text-xs font-extrabold transition",
+                  "shrink-0 w-[132px] h-[46px] rounded-xl px-4 text-xs font-extrabold transition",
                   canLookupNow
                     ? "bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 active:bg-slate-50"
                     : "bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed",
                 ].join(" ")}
                 aria-label="Lookup vehicle details"
               >
-                {loading ? "Looking…" : "Lookup"}
+                {loading ? "Looking…" : "Confirm"}
               </button>
             </div>
 
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-slate-500">
+            <div id="vrm-hint" className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-slate-500">
               <span className="inline-flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
-                Press Enter or tap Lookup
+                Press Enter or tap Confirm
               </span>
 
-              <button
-                type="button"
-                onClick={toggleManualMode}
-                className="ml-auto inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                {manualMode ? "Hide manual fields" : "Enter manually"}
+              <button type="button" onClick={toggleManualMode} className="ml-auto btn-ghost btn-sm">
+                {manualMode ? "Hide details" : "Edit details"}
               </button>
             </div>
 
@@ -403,23 +447,19 @@ export default function QuoteWidget({
               >
                 <div className="font-extrabold">We couldn’t fetch vehicle details</div>
                 <div className="mt-1">{lookupError}</div>
-                <div className="mt-2 text-[12px] text-red-700/80">
-                  No stress — enter your vehicle details manually below.
-                </div>
+                <div className="mt-2 text-[12px] text-red-700/80">No stress — enter your vehicle details manually below.</div>
               </div>
             ) : null}
 
             {/* Vehicle summary */}
             {vehicle ? (
-              <div className="mt-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <div className="mt-4 card-soft px-4 py-3">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <div className="text-xs text-slate-500 font-semibold uppercase tracking-wide">
-                      Vehicle found
+                    <div className="text-[11px] text-slate-500 font-semibold uppercase tracking-wide">
+                      Confirmed vehicle
                     </div>
-                    <div className="mt-1 text-sm font-extrabold text-slate-900">
-                      {vehicleTitle}
-                    </div>
+                    <div className="mt-1 text-sm font-extrabold text-slate-900">{vehicleTitle}</div>
                     <div className="mt-1 text-[13px] text-slate-600">
                       {lookupColour ? lookupColour : null}
                       {lookupFuel ? ` • ${lookupFuel}` : null}
@@ -427,7 +467,7 @@ export default function QuoteWidget({
                     </div>
                   </div>
 
-                  <span className="badge">{hasLookupBasics ? "Verified" : "Partial"}</span>
+                  <span className="badge">{hasLookupBasics ? "Verified" : "Check"}</span>
                 </div>
               </div>
             ) : null}
@@ -435,20 +475,20 @@ export default function QuoteWidget({
 
           {/* Manual details */}
           {manualMode ? (
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+            <div className="mt-4 card-soft p-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="text-sm font-extrabold text-slate-900">Manual vehicle details</div>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Only the basics are needed to continue.
-                  </p>
+                  <p className="mt-1 text-sm text-slate-600">Only make + model are needed to continue.</p>
                 </div>
                 <span className="badge">Manual</span>
               </div>
 
               <div className="mt-4 grid gap-4 sm:grid-cols-3">
                 <div>
-                  <label className="label" htmlFor="make">Make</label>
+                  <label className="label" htmlFor="make">
+                    Make
+                  </label>
                   <input
                     id="make"
                     className="input"
@@ -462,7 +502,9 @@ export default function QuoteWidget({
                 </div>
 
                 <div>
-                  <label className="label" htmlFor="model">Model</label>
+                  <label className="label" htmlFor="model">
+                    Model
+                  </label>
                   <input
                     id="model"
                     className="input"
@@ -476,7 +518,9 @@ export default function QuoteWidget({
                 </div>
 
                 <div>
-                  <label className="label" htmlFor="year">Year (optional)</label>
+                  <label className="label" htmlFor="year">
+                    Year (optional)
+                  </label>
                   <input
                     id="year"
                     className="input"
@@ -492,259 +536,343 @@ export default function QuoteWidget({
               </div>
 
               {!manualBasicsComplete ? (
-                <div className="mt-3 text-[12px] text-slate-500">
-                  Tip: Make + Model is enough to continue.
-                </div>
+                <div className="mt-3 field-hint">Tip: Make + Model is enough to continue.</div>
               ) : null}
             </div>
           ) : null}
         </div>
 
-        {/* Step 2: Cover */}
+        {/* Step 2: Cover (GATED) */}
         {requireDates ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="card p-5">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Step 2
+                <div className="flex items-center gap-2">
+                  <span className="badge">Step 2</span>
+                  <div className="text-sm font-extrabold text-slate-900">Cover</div>
                 </div>
-                <div className="mt-1 text-sm font-extrabold text-slate-900">Cover</div>
+
                 <div className="mt-1 text-sm text-slate-600">
-                  Choose exact start and end time — or select a duration.
+                  {step1Complete
+                    ? "Choose exact start and end time — or select a duration."
+                    : "Complete Step 1 to unlock cover dates and duration."}
                 </div>
               </div>
-              <span className="badge">Exact times</span>
+
+              <span className="badge">{step1Complete ? "Exact times" : "Locked"}</span>
             </div>
 
-            {/* Date inputs first (primary path) */}
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="label">Start date & time</label>
-                <input
-                  type="datetime-local"
-                  className="input"
-                  value={startAt}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setStartAt(v);
-                    setFormError(null);
+            {/* Locked panel */}
+            {!step1Complete ? (
+              <>
+                <div className="mt-4 h-px w-full bg-slate-200/70" />
 
-                    // keep end in sync when preset/custom is active
-                    if (durationPreset) {
-                      const computed = applyPreset(v, durationPreset);
-                      if (computed) setEndAt(computed);
-                    } else if (customDurationValue) {
-                      const computed = applyCustomDuration(v, customDurationValue, customDurationUnit);
-                      if (computed) setEndAt(computed);
-                    }
-                  }}
-                />
-              </div>
-
-              <div>
-                <label className="label">End date & time</label>
-                <input
-                  type="datetime-local"
-                  className="input"
-                  value={endAt}
-                  onChange={(e) => {
-                    setEndAt(e.target.value);
-                    setFormError(null);
-                    if (durationPreset) setDurationPreset("");
-                  }}
-                />
-              </div>
-
-              {!datesValid && startAt && endAt ? (
-                <div className="sm:col-span-2 text-sm text-red-600">
-                  End date/time must be after start date/time.
-                </div>
-              ) : null}
-            </div>
-
-            {/* Quick actions */}
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  const now = new Date();
-                  now.setMinutes(Math.ceil(now.getMinutes() / 5) * 5, 0, 0);
-                  const v = toDatetimeLocalValue(now);
-                  setStartAt(v);
-                  setFormError(null);
-
-                  if (durationPreset) {
-                    const computed = applyPreset(v, durationPreset);
-                    if (computed) setEndAt(computed);
-                  } else if (customDurationValue) {
-                    const computed = applyCustomDuration(v, customDurationValue, customDurationUnit);
-                    if (computed) setEndAt(computed);
-                  }
-                }}
-                className="btn-ghost btn-sm"
-              >
-                Start now
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setStartAt("");
-                  setEndAt("");
-                  setDurationPreset("");
-                  setCustomDurationValue("");
-                  setCustomOpen(false);
-                  setFormError(null);
-                }}
-                className="btn-ghost btn-sm"
-              >
-                Clear
-              </button>
-            </div>
-
-            {/* Duration selector */}
-            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-xs font-extrabold uppercase tracking-wide text-slate-600">
-                    Duration (optional)
-                  </div>
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="font-extrabold text-slate-900">Finish Step 1 first</div>
                   <div className="mt-1 text-sm text-slate-600">
-                    Pick a preset to auto-fill the end time.
+                    Enter a valid registration and confirm vehicle details (make + model) to continue.
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-3 text-[12px] text-slate-500">
+                    <span className="inline-flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+                      Registration must be valid
+                    </span>
+                    <span className="inline-flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+                      Make + Model required
+                    </span>
                   </div>
                 </div>
-                <span className="badge">Auto-fill</span>
-              </div>
+              </>
+            ) : (
+              <>
+                <div className="mt-4 h-px w-full bg-slate-200/70" />
 
-              {/* Grouped segmented buttons */}
-              <div className="mt-4 grid gap-4">
-                {(["Hours", "Days", "Weeks", "Months"] as const).map((g) => (
-                  <div key={g}>
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                      {g}
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {(presetGroups[g] ?? []).map((p) => {
-                        const active = durationPreset === p.key;
-                        return (
-                          <button
-                            key={p.key}
-                            type="button"
-onClick={() => {
-  const nextPreset = durationPreset === p.key ? "" : p.key;
+                {/* Date inputs first (primary path) */}
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="label">Start date & time</label>
+                    <input
+                      type="datetime-local"
+                      className="input"
+                      value={startAt}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setStartAt(v);
+                        setFormError(null);
 
-  setDurationPreset(nextPreset);
-  setCustomDurationValue("");
-  setCustomOpen(false);
-  setFormError(null);
-
-  if (startAt) {
-    const computed = applyPreset(startAt, nextPreset as any);
-    if (computed) setEndAt(computed);
-  }
-}}
-
-                            className={[
-                              "rounded-full border px-3 py-1.5 text-[12px] font-semibold transition",
-active
-  ? "border-sky-300 bg-sky-50 text-slate-900 ring-2 ring-sky-200/60"
-  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-                            ].join(" ")}
-                          >
-                            {p.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Custom duration drawer */}
-              <div className="mt-4">
-                <button
-                  type="button"
-                  onClick={() => setCustomOpen((v) => !v)}
-                  className="btn-ghost btn-sm"
-                >
-                  {customOpen ? "Hide custom duration" : "Custom duration"}
-                </button>
-
-                {customOpen ? (
-                  <div className="mt-3 grid gap-3 sm:grid-cols-[120px_160px_1fr] items-end">
-                    <div>
-                      <label className="label">Value</label>
-                      <input
-                        className="input h-[44px]"
-                        inputMode="numeric"
-                        placeholder="e.g. 10"
-                        value={customDurationValue}
-                        onChange={(e) => {
-                          setCustomDurationValue(e.target.value.replace(/[^0-9]/g, "").slice(0, 3));
-                          setDurationPreset("");
-                          setFormError(null);
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="label">Unit</label>
-                      <select
-                        className="input h-[44px]"
-                        value={customDurationUnit}
-                        onChange={(e) => {
-                          setCustomDurationUnit(e.target.value as any);
-                          setDurationPreset("");
-                          setFormError(null);
-                        }}
-                      >
-                        <option value="hours">Hours</option>
-                        <option value="days">Days</option>
-                        <option value="weeks">Weeks</option>
-                        <option value="months">Months</option>
-                      </select>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const computed = applyCustomDuration(startAt, customDurationValue, customDurationUnit);
+                        if (durationPreset) {
+                          const computed = applyPreset(v, durationPreset);
                           if (computed) setEndAt(computed);
-                        }}
-                        disabled={!startAt || !applyCustomDuration(startAt, customDurationValue, customDurationUnit)}
-                        className={[
-                          "btn-ghost btn-sm",
-                          !startAt || !applyCustomDuration(startAt, customDurationValue, customDurationUnit)
-                            ? "opacity-60 cursor-not-allowed"
-                            : "",
-                        ].join(" ")}
-                      >
-                        Apply
-                      </button>
-                      <div className="text-[12px] text-slate-500">
-                        Set a start time first.
+                        } else if (customDurationValue) {
+                          const computed = applyCustomDuration(v, customDurationValue, customDurationUnit);
+                          if (computed) setEndAt(computed);
+                        }
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="label">End date & time</label>
+                    <input
+                      type="datetime-local"
+                      className="input"
+                      value={endAt}
+                      onChange={(e) => {
+                        setEndAt(e.target.value);
+                        setFormError(null);
+                        if (durationPreset) setDurationPreset("");
+                      }}
+                    />
+                  </div>
+
+                  {!datesValid && startAt && endAt ? (
+                    <div className="sm:col-span-2 field-error">End date/time must be after start date/time.</div>
+                  ) : null}
+                </div>
+
+                {/* Quick actions */}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const now = new Date();
+                      now.setMinutes(Math.ceil(now.getMinutes() / 5) * 5, 0, 0);
+                      const v = toDatetimeLocalValue(now);
+                      setStartAt(v);
+                      setFormError(null);
+
+                      if (durationPreset) {
+                        const computed = applyPreset(v, durationPreset);
+                        if (computed) setEndAt(computed);
+                      } else if (customDurationValue) {
+                        const computed = applyCustomDuration(v, customDurationValue, customDurationUnit);
+                        if (computed) setEndAt(computed);
+                      }
+                    }}
+                    className="btn-ghost btn-sm"
+                  >
+                    Start now
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStartAt("");
+                      setEndAt("");
+                      setDurationPreset("");
+                      setCustomDurationValue("");
+                      setCustomOpen(false);
+                      setDurationExpanded(false);
+                      setFormError(null);
+                    }}
+                    className="btn-ghost btn-sm"
+                  >
+                    Clear
+                  </button>
+                </div>
+
+                {/* Duration selector (compact + ghost/light) */}
+                <div className="mt-5 card-soft p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-xs font-extrabold uppercase tracking-wide text-slate-600">Quick duration</div>
+                      <div className="mt-1 text-sm text-slate-600">Choose a duration to auto-fill your end time.</div>
+                    </div>
+                    <span className="badge">Auto-fill</span>
+                  </div>
+
+                  <div className="mt-4">
+                    {/* Tabs row + toggle */}
+                    <div className="inline-flex w-full flex-wrap items-center justify-between gap-2">
+                      <div className="inline-flex rounded-full border border-slate-200 bg-white p-1">
+                        {(
+                          [
+                            { k: "hours", label: "Hourly" },
+                            { k: "days", label: "Daily" },
+                            { k: "weeks", label: "Weekly" },
+                            { k: "months", label: "Monthly" },
+                          ] as const
+                        ).map((t) => {
+                          const active = durationMode === t.k;
+                          return (
+                            <button
+                              key={t.k}
+                              type="button"
+                              onClick={() => {
+                                setDurationMode(t.k);
+                                setDurationExpanded(true); // open automatically on tab tap
+                                setCustomOpen(false);
+                                setFormError(null);
+                              }}
+                              className={[
+                                "h-9 rounded-full px-4 text-[12px] font-extrabold transition",
+                                "border",
+                                active
+                                  ? "bg-sky-50 text-slate-900 border-sky-200 ring-2 ring-sky-200/60"
+                                  : "bg-white text-slate-700 border-transparent hover:bg-slate-50 hover:border-slate-200",
+                              ].join(" ")}
+                            >
+                              {t.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="hidden sm:inline text-[12px] text-slate-500">
+                          {startAt ? "Select a duration." : "Set a start time first."}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() => setDurationExpanded((v) => !v)}
+                          className="btn-ghost btn-sm"
+                        >
+                          {durationExpanded ? "Hide" : "Options"}
+                        </button>
                       </div>
                     </div>
+
+                    {/* Expanded panel */}
+                    {durationExpanded ? (
+                      <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {DURATION_OPTIONS[durationMode].map((opt) => {
+                            const active = durationPreset === opt.key;
+                            const disabled = !startAt;
+
+                            return (
+                              <button
+                                key={opt.key}
+                                type="button"
+                                disabled={disabled}
+                                onClick={() => {
+                                  if (!startAt) return;
+
+                                  const nextPreset = durationPreset === opt.key ? "" : opt.key;
+
+                                  setDurationPreset(nextPreset);
+                                  setCustomOpen(false);
+                                  setFormError(null);
+
+                                  const computed = applyPreset(startAt, nextPreset as any);
+                                  if (computed) setEndAt(computed);
+
+                                  // Auto-collapse after choosing
+                                  setDurationExpanded(false);
+                                }}
+                                className={[
+                                  "h-9 rounded-full border px-3 text-[12px] font-extrabold transition",
+                                  disabled
+                                    ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
+                                    : active
+                                    ? "border-sky-300 bg-sky-50 text-slate-900 ring-2 ring-sky-200/60"
+                                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                                ].join(" ")}
+                              >
+                                {opt.label}
+                              </button>
+                            );
+                          })}
+
+                          {/* Custom toggle as a chip */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCustomOpen((v) => !v);
+                              setFormError(null);
+                            }}
+                            className={[
+                              "h-9 rounded-full border px-3 text-[12px] font-extrabold transition",
+                              customOpen
+                                ? "border-sky-300 bg-sky-50 text-slate-900 ring-2 ring-sky-200/60"
+                                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                            ].join(" ")}
+                          >
+                            Custom
+                          </button>
+                        </div>
+
+                        {/* Custom row */}
+                        {customOpen ? (
+                          <div className="mt-3 grid gap-3 sm:grid-cols-[140px_180px_auto] items-end">
+                            <div>
+                              <label className="label">Value</label>
+                              <input
+                                className="input h-[44px]"
+                                inputMode="numeric"
+                                placeholder="e.g. 10"
+                                value={customDurationValue}
+                                onChange={(e) => {
+                                  setCustomDurationValue(e.target.value.replace(/[^0-9]/g, "").slice(0, 3));
+                                  setDurationPreset("");
+                                  setFormError(null);
+                                }}
+                              />
+                            </div>
+
+                            <div>
+                              <label className="label">Unit</label>
+                              <select
+                                className="input h-[44px]"
+                                value={customDurationUnit}
+                                onChange={(e) => {
+                                  setCustomDurationUnit(e.target.value as any);
+                                  setDurationPreset("");
+                                  setFormError(null);
+                                }}
+                              >
+                                <option value="hours">Hours</option>
+                                <option value="days">Days</option>
+                                <option value="weeks">Weeks</option>
+                                <option value="months">Months</option>
+                              </select>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const computed = applyCustomDuration(startAt, customDurationValue, customDurationUnit);
+                                  if (computed) setEndAt(computed);
+                                  setDurationExpanded(false); // collapse after apply
+                                }}
+                                disabled={!startAt || !applyCustomDuration(startAt, customDurationValue, customDurationUnit)}
+                                className={[
+                                  "btn-ghost btn-sm",
+                                  !startAt || !applyCustomDuration(startAt, customDurationValue, customDurationUnit)
+                                    ? "opacity-60 cursor-not-allowed"
+                                    : "",
+                                ].join(" ")}
+                              >
+                                Apply
+                              </button>
+
+                              <span className="text-[12px] text-slate-500">
+                                {startAt ? "Auto-fills end time." : "Set a start time first."}
+                              </span>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                {/* Summary */}
+                {startAt && endAt && datesValid ? (
+                  <div className="mt-4 card-soft px-4 py-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Cover period</div>
+                    <div className="mt-1 text-sm font-extrabold text-slate-900">
+                      {startAt.replace("T", " ")} → {endAt.replace("T", " ")}
+                    </div>
+                    <div className="mt-1 field-hint">You’ll confirm details on the next step before payment.</div>
                   </div>
                 ) : null}
-              </div>
-            </div>
-
-            {/* Summary */}
-            {startAt && endAt && datesValid ? (
-              <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  Cover period
-                </div>
-                <div className="mt-1 text-sm font-extrabold text-slate-900">
-                  {startAt.replace("T", " ")} → {endAt.replace("T", " ")}
-                </div>
-                <div className="mt-1 text-[12px] text-slate-500">
-                  You’ll confirm details on the next step before payment.
-                </div>
-              </div>
-            ) : null}
+              </>
+            )}
           </div>
         ) : null}
 

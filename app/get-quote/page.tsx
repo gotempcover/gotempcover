@@ -299,58 +299,100 @@ export default function GetQuotePage() {
     } catch {}
   }
 
-  function onContinueToPayment() {
-    setFormError(null);
+async function onContinueToPayment() {
+  setFormError(null);
 
-    if (!draft?.vrm) {
-      setFormError("We couldn’t find your saved vehicle details. Go back and re-enter your reg to continue.");
-      detailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
-    if (!draft.startAt || !draft.endAt || !durationMs) {
-      setFormError("Your cover dates need adjusting — end time must be after start time.");
-      detailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
-    if (!selected) {
-      setFormError("Choose a pricing option to continue.");
-      return;
-    }
-    if (!canContinue) {
-      setFormError("Please complete the details highlighted on the left before continuing.");
-      detailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
-
-    const payload = {
-      quoteRef: quoteRef || makeQuoteRef(),
-      quote: {
-        vrm: draft.vrm,
-        make: draft.make,
-        model: draft.model,
-        year: draft.year,
-        startAt: draft.startAt,
-        endAt: draft.endAt,
-        durationMs,
-      },
-      customer: { ...customer, address: buildAddressString(address) },
-      pricing: {
-        selectedPlan: selected.key,
-        selectedLabel: selected.label,
-        units: selected.units,
-        unitPrice: selected.unitPrice,
-        total: selected.total,
-        rateCard: RATES,
-      },
-      createdAt: new Date().toISOString(),
-    };
-
-    try {
-      sessionStorage.setItem("gtc_checkout_payload", JSON.stringify(payload));
-    } catch {}
-
-    window.location.assign("/checkout");
+  if (!draft?.vrm) {
+    setFormError(
+      "We couldn’t find your saved vehicle details. Go back and re-enter your reg to continue."
+    );
+    detailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
   }
+
+  if (!draft.startAt || !draft.endAt || !durationMs) {
+    setFormError("Your cover dates need adjusting — end time must be after start time.");
+    detailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  if (!selected) {
+    setFormError("Choose a pricing option to continue.");
+    return;
+  }
+
+  if (!canContinue) {
+    setFormError("Please complete the details highlighted on the left before continuing.");
+    detailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  const payload = {
+    quoteRef: quoteRef || makeQuoteRef(),
+    quote: {
+      vrm: draft.vrm,
+      make: draft.make,
+      model: draft.model,
+      year: draft.year,
+      startAt: draft.startAt,
+      endAt: draft.endAt,
+      durationMs,
+    },
+    customer: { ...customer, address: buildAddressString(address) },
+    pricing: {
+      selectedPlan: selected.key,
+      selectedLabel: selected.label,
+      units: selected.units,
+      unitPrice: selected.unitPrice,
+      total: selected.total,
+      rateCard: RATES,
+    },
+    createdAt: new Date().toISOString(),
+  };
+
+  try {
+    sessionStorage.setItem("gtc_checkout_payload", JSON.stringify(payload));
+  } catch {}
+
+  try {
+    const res = await fetch("/api/stripe/checkout", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        quote: {
+          vrm: draft.vrm,
+          make: draft.make || "",
+          model: draft.model || "",
+          year: draft.year || "",
+          // checkout expects ISO timestamps
+          startAt: new Date(draft.startAt).toISOString(),
+          endAt: new Date(draft.endAt).toISOString(),
+          durationMs,
+          totalAmountPence: Math.round((selected.total ?? 0) * 100),
+        },
+        customer: {
+          fullName: customer.fullName,
+          dob: customer.dob,
+          email: customer.email,
+          licenceType: customer.licenceType,
+          address: buildAddressString(address),
+        },
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data?.url) {
+      throw new Error(data?.error || "Failed to start checkout");
+    }
+
+    window.location.href = data.url as string;
+  } catch (err: any) {
+    setFormError(err?.message || "Something went wrong starting checkout.");
+    detailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
 
   const subtitle = draft?.vrm
     ? "Review your details, adjust dates if needed, then choose the best-value option."

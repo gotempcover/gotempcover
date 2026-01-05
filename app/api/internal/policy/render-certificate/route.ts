@@ -19,6 +19,11 @@ function getBaseUrl(req: Request) {
 
 export async function POST(req: Request) {
   try {
+        const key = req.headers.get("x-internal-key");
+if (!process.env.INTERNAL_RENDER_KEY || key !== process.env.INTERNAL_RENDER_KEY) {
+  return new Response("Unauthorized", { status: 401 });
+}
+
     const body = (await req.json().catch(() => null)) as
       | Partial<CertificatePdfInput>
       | null;
@@ -29,6 +34,7 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
 
     const baseUrl = body.baseUrl || getBaseUrl(req);
 

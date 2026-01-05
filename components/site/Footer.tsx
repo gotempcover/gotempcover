@@ -1,11 +1,17 @@
+// components/site/Footer.tsx
 import Link from "next/link";
 
-function BrandMark() {
+function FooterLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div
-      aria-hidden="true"
-      className="h-9 w-9 rounded-xl bg-gradient-to-br from-blue-600 to-sky-500 shadow-sm"
-    />
+    <Link className="link text-sm" href={href}>
+      {children}
+    </Link>
   );
 }
 
@@ -17,24 +23,35 @@ export default function Footer() {
           {/* Brand + compliance */}
           <div>
             <div className="flex items-center gap-3">
-              <BrandMark />
-              <div>
-                <div className="text-sm font-extrabold tracking-tight text-slate-900">
+              {/* Static logo (no motion, no hooks, no client boundaries) */}
+              <img
+                src="/brand/gotempcover.svg"
+                alt="GoTempCover logo"
+                className="h-9 w-9 shrink-0"
+              />
+
+              <div className="min-w-0 leading-tight">
+                <div className="text-[15px] font-extrabold tracking-tight text-slate-900 font-tan">
                   GoTempCover
                 </div>
-                <div className="text-xs text-slate-500">
-                  Temporary cover, without the hassle.
+                <div className="text-[11px] text-slate-500">
+                  Temporary cover, simplified.
                 </div>
               </div>
             </div>
 
             <p className="mt-4 max-w-md text-sm leading-relaxed text-slate-600">
-              Choose your start and end times, see your price, then check out securely. Your documents
-              are available instantly after purchase and sent to your email.
+              Choose your exact start and end time, review your premium, then pay
+              securely. Your Certificate of Motor Insurance and policy documents are
+              issued instantly after purchase and sent to your email.
             </p>
 
-            <div className="mt-6 flex flex-col gap-2 text-[12px] text-slate-600">
-              {["Secure checkout", "Instant documents after purchase", "Retrieve policy anytime"].map((t) => (
+            <div className="mt-6 grid gap-2 text-[12px] text-slate-600">
+              {[
+                "Secure checkout (Stripe)",
+                "Instant documents after purchase",
+                "Self-serve policy retrieval anytime",
+              ].map((t) => (
                 <div key={t} className="flex items-center gap-2">
                   <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
                   <span>{t}</span>
@@ -43,65 +60,103 @@ export default function Footer() {
             </div>
 
             <p className="mt-6 text-[11px] leading-relaxed text-slate-500">
-              Important: GoTempCover is a service for arranging temporary insurance. Cover is subject
-              to eligibility, underwriting and acceptance by the insurer. Always read your policy
-              documents carefully.
+              Important: Cover is subject to eligibility, underwriting and acceptance.
+              Always review your Certificate of Motor Insurance and Statement of Fact
+              before driving.
             </p>
+
+            {/* Social (optional) */}
+            <div className="mt-6 flex flex-wrap items-center gap-2">
+              <span className="text-[12px] text-slate-500">Never miss a beat:</span>
+              <a className="link text-sm" href="#" aria-label="GoTempCover on Facebook">
+                Facebook
+              </a>
+              <a className="link text-sm" href="#" aria-label="GoTempCover on Instagram">
+                Instagram
+              </a>
+            </div>
           </div>
 
           {/* Links + retrieval */}
-          <div className="md:justify-self-end">
+          <div className="md:justify-self-end md:min-w-[420px]">
             <div className="grid grid-cols-2 gap-8">
               <div>
-                <div className="text-xs font-semibold text-slate-900">Company</div>
-                <div className="mt-3 flex flex-col gap-2 text-sm">
-                  <Link className="text-slate-600 hover:text-slate-900" href="/contact">
-                    Contact
-                  </Link>
-                  <Link className="text-slate-600 hover:text-slate-900" href="/privacy">
-                    Privacy
-                  </Link>
-                  <Link className="text-slate-600 hover:text-slate-900" href="/terms">
-                    Terms
-                  </Link>
+                <div className="text-xs font-semibold text-slate-900">Support</div>
+                <div className="mt-3 flex flex-col gap-2">
+                  <FooterLink href="/help-support">Help centre</FooterLink>
+                  <FooterLink href="/contact">Contact</FooterLink>
+                  <FooterLink href="/retrieve-policy">Retrieve policy</FooterLink>
+                  <FooterLink href="/complaints">Complaints</FooterLink>
                 </div>
               </div>
 
               <div>
-                <div className="text-xs font-semibold text-slate-900">Products</div>
-                <div className="mt-3 flex flex-col gap-2 text-sm">
-                  <Link className="text-slate-600 hover:text-slate-900" href="/car">
-                    Car insurance
-                  </Link>
-                  <Link className="text-slate-600 hover:text-slate-900" href="/van">
-                    Van insurance
-                  </Link>
-                  <Link className="text-slate-600 hover:text-slate-900" href="/learner">
-                    Learner insurance
-                  </Link>
-                  <Link className="text-slate-600 hover:text-slate-900" href="/impound">
-                    Impound insurance
-                  </Link>
-                  <Link className="text-slate-600 hover:text-slate-900" href="/more">
-                    More
-                  </Link>
+                <div className="text-xs font-semibold text-slate-900">Company</div>
+                <div className="mt-3 flex flex-col gap-2">
+                  <FooterLink href="/privacy">Privacy</FooterLink>
+                  <FooterLink href="/terms">Terms</FooterLink>
+                  <FooterLink href="/cookies">Cookies</FooterLink>
+                  <FooterLink href="/more/faq">FAQs</FooterLink>
                 </div>
               </div>
             </div>
 
             <div className="mt-8 card p-5">
-              <div className="text-sm font-extrabold text-slate-900">Already have a policy?</div>
-              <p className="mt-2 text-sm text-slate-600">
-                Retrieve documents using your policy number and email.
-              </p>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-extrabold text-slate-900">
+                    Already purchased cover?
+                  </div>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Retrieve your Certificate and policy documents using your policy
+                    number and email.
+                  </p>
+                </div>
 
-              {/* Ghost/light (per global rule) */}
+                <span className="badge">Self-serve</span>
+              </div>
+
+              {/* Ghost/light (per your global rule) */}
               <Link className="btn-ghost mt-4 inline-flex" href="/retrieve-policy">
                 Retrieve policy
               </Link>
 
               <div className="mt-3 text-[12px] text-slate-500">
-                Fast self-serve access. No waiting around.
+                Immediate access to documents — no waiting for support.
+              </div>
+            </div>
+
+            {/* Regulatory / legal block */}
+            <div className="mt-8 rounded-2xl border border-slate-200 bg-white/70 backdrop-blur p-5">
+              <div className="text-xs font-extrabold text-slate-900">
+                Regulatory information
+              </div>
+
+              <div className="mt-3 text-[11px] leading-relaxed text-slate-600">
+                We hereby certify that the policy satisfies the requirements of the relevant law
+                applicable in Great Britain, Northern Ireland, the Isle of Man, and the islands of
+                Alderney, Guernsey and Jersey.
+              </div>
+
+              <div className="mt-3 text-[11px] leading-relaxed text-slate-600">
+                GoTempCover Limited is authorised by the Gibraltar Financial Services Commission to
+                carry on insurance business under the Financial Services Act 2019 and Financial
+                Services Regulations 2020, registered address 5/5 Crutchett’s Ramp, Gibraltar.
+                Details about our regulation by the Financial Conduct Authority and Prudential
+                Regulation Authority are available on request.
+              </div>
+
+              <div className="mt-3 text-[11px] leading-relaxed text-slate-600">
+                Registered in England and Wales as{" "}
+                <span className="font-semibold">ACCELERANT INSURANCE UK LIMITED</span>. Reg. No. 03326800.
+                Registered Address: One, Fleet Place, London, England, EC4M 7WS. Authorised and
+                regulated by the Financial Conduct Authority (207658).
+              </div>
+
+              <div className="mt-4 text-[11px] leading-relaxed text-slate-500">
+                Confidentiality notice: The content of this site and any related communications is
+                intended for the recipient specified only. If you believe you have received something
+                in error, please notify us and delete it.
               </div>
             </div>
           </div>
@@ -112,7 +167,7 @@ export default function Footer() {
             © {new Date().getFullYear()} GoTempCover. All rights reserved.
           </div>
           <div className="text-xs text-slate-500">
-            Built for speed, clarity & compliance.
+            Secure checkout • Instant documents • Policy retrieval
           </div>
         </div>
       </div>

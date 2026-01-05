@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Policy" ALTER COLUMN "durationMs" SET DATA TYPE BIGINT;

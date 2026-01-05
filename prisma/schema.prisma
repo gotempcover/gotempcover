@@ -7,9 +7,48 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum PolicyStatus {
+  DRAFT
+  PAID
+  ACTIVE
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentProvider {
+  STRIPE
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum DocumentKind {
+  PROPOSAL
+  CERTIFICATE
+  TERMS
+}
+
+enum StorageProvider {
+  SUPABASE
+  R2
+}
+
+enum PolicyEventType {
+  POLICY_CREATED
+  PAYMENT_CONFIRMED
+  DOCS_GENERATED
+  EMAIL_SENT
+  FINALIZE_RETRIED
+}
+
 model Policy {
   id               String   @id @default(cuid())
   policyNumber     String   @unique
+  status           PolicyStatus @default(DRAFT)
 
   // Quote details
   vrm              String
@@ -18,7 +57,7 @@ model Policy {
   year             String?
   startAt          DateTime
   endAt            DateTime
-  durationMs       Int
+  durationMs       BigInt
   totalAmountPence Int
 
   // Customer
@@ -28,11 +67,14 @@ model Policy {
   licenceType      String
   address          String
 
-  // Payment (provider-agnostic)
-  paymentProvider  String
-  paymentId        String
-  paymentStatus    String
-  currency         String
+  // Payment
+  paymentProvider  PaymentProvider
+  paymentId        String              // Recommended: Stripe Checkout Session ID (cs_...)
+  paymentStatus    PaymentStatus
+  currency         String              // "GBP"
+
+  // Stripe extras (optional but strongly recommended)
+  stripePaymentIntentId String?        // pi_...
 
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -41,6 +83,9 @@ model Policy {
   events           PolicyEvent[]
 
   @@unique([paymentProvider, paymentId])
+  @@index([email])
+  @@index([vrm])
+  @@index([startAt])
 }
 
 model PolicyDocument {
@@ -48,11 +93,17 @@ model PolicyDocument {
   policyId   String
   policy     Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
 
-  kind       String   // "certificate" | "schedule" | "terms"
+  kind       DocumentKind
   filename   String
-  storageKey String?  // R2 key later
-  url        String?  // signed url later
+
+  storageProvider StorageProvider @default(SUPABASE)
+  storageKey String?   // object key/path
+  url        String?   // public URL now; later can be signed URL or null
+
   createdAt  DateTime @default(now())
+
+  @@index([policyId])
+  @@index([kind])
 }
 
 model PolicyEvent {
@@ -60,7 +111,10 @@ model PolicyEvent {
   policyId  String
   policy    Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
 
-  type      String   // "POLICY_CREATED" | "PAYMENT_CONFIRMED" | "DOCS_GENERATED" | "EMAIL_SENT"
+  type      PolicyEventType
   data      Json?
   createdAt DateTime @default(now())
+
+  @@index([policyId])
+  @@index([type])
 }
