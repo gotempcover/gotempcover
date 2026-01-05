@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 /* =========================================================
    Quote Widget — Apple-level UX polish (Bottom-sheet Step 2)
@@ -119,6 +119,9 @@ export default function QuoteWidget({
   // ✅ Bottom-sheet state for Step 2
   const [coverSheetOpen, setCoverSheetOpen] = useState(false);
 
+  // Refs
+  const sheetScrollRef = useRef<HTMLDivElement | null>(null);
+
   const normaliseVrm = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
 
   // Display formatting: AB12 CDE (store AB12CDE)
@@ -147,6 +150,43 @@ export default function QuoteWidget({
 
   // ✅ Step gating (UI only)
   const step1Complete = vrm.length >= 5 && hasChosenVehicleBasics;
+
+  // ✅ Auto-open duration options when sheet opens + reset panel state (UI only)
+  useEffect(() => {
+    if (!coverSheetOpen) return;
+
+    setDurationMode("hours");
+    setDurationExpanded(true); // ✅ show options immediately
+    setCustomOpen(false);
+
+    // Bonus polish: ensure scroll starts at top every time
+    requestAnimationFrame(() => {
+      sheetScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coverSheetOpen]);
+
+  // ✅ (B) Escape key closes sheet
+  useEffect(() => {
+    if (!coverSheetOpen) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setCoverSheetOpen(false);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [coverSheetOpen]);
+
+  // Prevent background scroll when sheet is open (mobile polish)
+  useEffect(() => {
+    if (!coverSheetOpen) return;
+    const prev = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.documentElement.style.overflow = prev;
+    };
+  }, [coverSheetOpen]);
 
   // ---------- Date helpers ----------
   function toDatetimeLocalValue(d: Date) {
@@ -243,12 +283,12 @@ export default function QuoteWidget({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [durationPreset, startAt, requireDates]);
 
-  // ✅ When Step 1 becomes incomplete again, collapse Step 2 UI bits (UI only)
+  // ✅ (A) When Step 1 becomes incomplete again, close sheet + custom UI bits (UI only)
   useEffect(() => {
     if (!step1Complete) {
-      setDurationExpanded(false);
       setCustomOpen(false);
       setCoverSheetOpen(false);
+      // don't force durationExpanded here — the sheet-open effect controls it
     }
   }, [step1Complete]);
 
@@ -281,6 +321,7 @@ export default function QuoteWidget({
     return `${fmt(startAt)} → ${fmt(endAt)}`;
   }, [requireDates, startAt, endAt, datesValid]);
 
+  // vrm is already normalized
   const canLookupNow = useMemo(() => vrm.length >= 5 && !loading, [vrm, loading]);
 
   const canContinue = useMemo(() => {
@@ -367,16 +408,6 @@ export default function QuoteWidget({
     setFormError(null);
   }
 
-  // Prevent background scroll when sheet is open (mobile polish)
-  useEffect(() => {
-    if (!coverSheetOpen) return;
-    const prev = document.documentElement.style.overflow;
-    document.documentElement.style.overflow = "hidden";
-    return () => {
-      document.documentElement.style.overflow = prev;
-    };
-  }, [coverSheetOpen]);
-
   return (
     <div className="relative overflow-x-hidden">
       {/* Header */}
@@ -386,9 +417,7 @@ export default function QuoteWidget({
             {compact ? "Quick quote" : "Get temporary cover in minutes"}
           </h3>
           <p className="mt-1 text-sm text-slate-600">
-            {compact
-              ? "Enter your reg, choose dates, then continue."
-              : "Enter your reg, confirm the vehicle, then choose exact cover times."}
+            {compact ? "Enter your reg, choose dates, then continue." : "Enter your reg, confirm the vehicle, then choose exact cover times."}
           </p>
         </div>
 
@@ -461,7 +490,10 @@ export default function QuoteWidget({
               </button>
             </div>
 
-            <div id="vrm-hint" className="mt-2 flex flex-col sm:flex-row sm:items-center gap-2 text-[12px] text-slate-500">
+            <div
+              id="vrm-hint"
+              className="mt-2 flex flex-col sm:flex-row sm:items-center gap-2 text-[12px] text-slate-500"
+            >
               <span className="inline-flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
                 Press Enter or tap Confirm
@@ -473,7 +505,10 @@ export default function QuoteWidget({
             </div>
 
             {lookupError ? (
-              <div id="vrm-error" className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div
+                id="vrm-error"
+                className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+              >
                 <div className="font-extrabold">We couldn’t fetch vehicle details</div>
                 <div className="mt-1">{lookupError}</div>
                 <div className="mt-2 text-[12px] text-red-700/80">No stress — enter your vehicle details manually below.</div>
@@ -602,11 +637,7 @@ export default function QuoteWidget({
                   <div className="mt-1 text-sm font-extrabold text-slate-900">{coverSummary}</div>
 
                   <div className="mt-3">
-                    <button
-                      type="button"
-                      onClick={() => setCoverSheetOpen(true)}
-                      className="btn-ghost btn-sm w-full"
-                    >
+                    <button type="button" onClick={() => setCoverSheetOpen(true)} className="btn-ghost btn-sm w-full">
                       Edit cover times
                     </button>
                   </div>
@@ -689,7 +720,7 @@ export default function QuoteWidget({
           />
 
           {/* Sheet */}
-          <div className="absolute inset-x-0 bottom-0 max-h-[88dvh] rounded-t-3xl bg-white shadow-2xl pb-[env(safe-area-inset-bottom)]">
+          <div className="absolute inset-x-0 bottom-0 h-[88dvh] rounded-t-3xl bg-white shadow-2xl pb-[env(safe-area-inset-bottom)] flex flex-col">
             {/* Grab handle */}
             <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-slate-200" />
 
@@ -707,8 +738,11 @@ export default function QuoteWidget({
               </div>
             </div>
 
-            {/* Scrollable content */}
-            <div className="max-h-[calc(88dvh-64px)] overflow-y-auto px-4 pb-5 pt-4">
+            {/* Scrollable content (iOS-safe) */}
+            <div
+              ref={sheetScrollRef}
+              className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y px-4 pb-5 pt-4 [-webkit-overflow-scrolling:touch]"
+            >
               {/* Date inputs */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -784,7 +818,7 @@ export default function QuoteWidget({
                     setDurationPreset("");
                     setCustomDurationValue("");
                     setCustomOpen(false);
-                    setDurationExpanded(false);
+                    setDurationExpanded(true); // ✅ keep options open even after clear
                     setFormError(null);
                   }}
                   className="btn-ghost btn-sm shrink-0"
@@ -821,7 +855,7 @@ export default function QuoteWidget({
                             type="button"
                             onClick={() => {
                               setDurationMode(t.k);
-                              setDurationExpanded(true);
+                              setDurationExpanded(true); // ✅ always show options
                               setCustomOpen(false);
                               setFormError(null);
                             }}
@@ -839,11 +873,16 @@ export default function QuoteWidget({
                       })}
                     </div>
 
-                    <button type="button" onClick={() => setDurationExpanded((v) => !v)} className="btn-ghost btn-sm w-full">
-                      {durationExpanded ? "Hide options" : "Options"}
+                    <button
+                      type="button"
+                      onClick={() => setDurationExpanded((v) => !v)}
+                      className="btn-ghost btn-sm w-full"
+                    >
+                      {durationExpanded ? "Hide options" : "Show options"}
                     </button>
                   </div>
 
+                  {/* ✅ Now visible immediately when sheet opens */}
                   {durationExpanded ? (
                     <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
                       <div className="flex flex-wrap items-center gap-2">
@@ -868,7 +907,8 @@ export default function QuoteWidget({
                                 const computed = applyPreset(startAt, nextPreset as any);
                                 if (computed) setEndAt(computed);
 
-                                setDurationExpanded(false);
+                                // Optional UX: keep panel open (you can still close manually)
+                                // setDurationExpanded(false);
                               }}
                               className={[
                                 "h-9 rounded-full border px-3 text-[12px] font-extrabold transition",
@@ -942,7 +982,6 @@ export default function QuoteWidget({
                               onClick={() => {
                                 const computed = applyCustomDuration(startAt, customDurationValue, customDurationUnit);
                                 if (computed) setEndAt(computed);
-                                setDurationExpanded(false);
                               }}
                               disabled={!startAt || !applyCustomDuration(startAt, customDurationValue, customDurationUnit)}
                               className={[
@@ -975,6 +1014,9 @@ export default function QuoteWidget({
                   <div className="mt-1 field-hint">You’ll confirm details on the next step before payment.</div>
                 </div>
               ) : null}
+
+              {/* Nice little end padding so last card isn't glued to the bottom */}
+              <div className="h-6" />
             </div>
           </div>
         </div>
