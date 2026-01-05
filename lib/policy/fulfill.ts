@@ -1,6 +1,6 @@
 // lib/policy/fulfill.ts
 import { prisma } from "@/db/prisma";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { sendPolicyEmail } from "@/lib/email/sendPolicyEmail";
 
 export type FulfillResult = {
@@ -33,6 +33,8 @@ async function renderPdf(path: string, payload: any): Promise<Buffer> {
 }
 
 async function uploadPdf(bucket: string, key: string, pdf: Buffer) {
+  const supabaseAdmin = getSupabaseAdmin();
+
   const { error } = await supabaseAdmin.storage.from(bucket).upload(key, pdf, {
     contentType: "application/pdf",
     upsert: true,
@@ -51,8 +53,10 @@ export async function fulfillPolicy(policyId: string): Promise<FulfillResult> {
   if (!policy) throw new Error("Policy not found");
 
   // Check if we have docs already
-  const existingProposal = policy.documents.find((d) => d.kind === "PROPOSAL")?.url || null;
-  const existingCert = policy.documents.find((d) => d.kind === "CERTIFICATE")?.url || null;
+  const existingProposal =
+    policy.documents.find((d) => d.kind === "PROPOSAL")?.url || null;
+  const existingCert =
+    policy.documents.find((d) => d.kind === "CERTIFICATE")?.url || null;
 
   let proposalUrl = existingProposal ?? "";
   let certificateUrl = existingCert ?? "";
@@ -105,8 +109,14 @@ export async function fulfillPolicy(policyId: string): Promise<FulfillResult> {
       signatureUrl: "/brand/signature.png",
     };
 
-    const proposalPdf = await renderPdf("/api/internal/policy/render-proposal", proposalPayload);
-    const certPdf = await renderPdf("/api/internal/policy/render-certificate", certificatePayload);
+    const proposalPdf = await renderPdf(
+      "/api/internal/policy/render-proposal",
+      proposalPayload
+    );
+    const certPdf = await renderPdf(
+      "/api/internal/policy/render-certificate",
+      certificatePayload
+    );
 
     const bucket = "policy-documents";
     const baseKey = `policies/${policy.policyNumber}`;
@@ -199,7 +209,7 @@ export async function fulfillPolicy(policyId: string): Promise<FulfillResult> {
     }
   }
 
-  // ✅ Always return an object (fixes your TS errors)
+  // ✅ Always return an object
   return {
     proposalUrl,
     certificateUrl,
