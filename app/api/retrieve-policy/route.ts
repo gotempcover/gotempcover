@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db/prisma";
 import { sendPolicyEmail } from "@/lib/email/sendPolicyEmail";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
@@ -21,9 +21,14 @@ function normPolicyNumber(v: string) {
   return v.trim().toUpperCase().replace(/\s+/g, "");
 }
 
-async function getSignedOrPublicUrl(storageKey?: string | null, publicUrl?: string | null) {
+async function getSignedOrPublicUrl(
+  storageKey?: string | null,
+  publicUrl?: string | null
+) {
   // Prefer signed url (better security)
   if (storageKey) {
+    const supabaseAdmin = getSupabaseAdmin();
+
     const { data, error } = await supabaseAdmin.storage
       .from("policy-documents")
       .createSignedUrl(storageKey, 60 * 10); // 10 minutes
@@ -41,7 +46,10 @@ export async function POST(req: Request) {
   try {
     const body = (await req.json().catch(() => null)) as Body | null;
     if (!body?.policyNumber || !body?.email) {
-      return NextResponse.json({ error: "Missing policyNumber or email" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing policyNumber or email" },
+        { status: 400 }
+      );
     }
 
     const policyNumber = normPolicyNumber(body.policyNumber);
@@ -92,12 +100,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true }, { status: 200 });
     }
 
-    const certificateUrl = await getSignedOrPublicUrl(cert?.storageKey, cert?.url);
-    const proposalUrl = await getSignedOrPublicUrl(prop?.storageKey, prop?.url);
+    const certificateUrl = await getSignedOrPublicUrl(
+      cert?.storageKey,
+      cert?.url
+    );
+    const proposalUrl = await getSignedOrPublicUrl(
+      prop?.storageKey,
+      prop?.url
+    );
 
     // Resend email (attachments)
     // If proposalUrl is missing for any reason, we still email certificate+whatever we can.
-    // (If you want to require BOTH, you can hard-guard here.)
     await sendPolicyEmail({
       to: policy.email,
       policyNumber: policy.policyNumber,
@@ -132,8 +145,9 @@ export async function POST(req: Request) {
       { status: 200 }
     );
   } catch (e: any) {
-    // If you want to avoid leaking anything at all, you can return { ok: true } here.
-    // But since this is your own UI flow, a 500 is useful during dev:
-    return NextResponse.json({ error: e?.message ?? "Failed to retrieve policy" }, { status: 500 });
+    return NextResponse.json(
+      { error: e?.message ?? "Failed to retrieve policy" },
+      { status: 500 }
+    );
   }
 }

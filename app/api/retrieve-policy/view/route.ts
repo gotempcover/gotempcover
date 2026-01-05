@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db/prisma";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
@@ -21,7 +21,10 @@ export async function POST(req: Request) {
   try {
     const body = (await req.json().catch(() => null)) as Body | null;
     if (!body?.policyNumber || !body?.email) {
-      return NextResponse.json({ ok: false, error: "Missing policyNumber or email" }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: "Missing policyNumber or email" },
+        { status: 400 }
+      );
     }
 
     const policyNumber = normPolicyNumber(body.policyNumber);
@@ -56,13 +59,18 @@ export async function POST(req: Request) {
 
     const cert = policy.documents.find((d) => d.kind === "CERTIFICATE");
     if (!cert) {
-      return NextResponse.json({ ok: false, reason: "DOCS_NOT_READY" }, { status: 200 });
+      return NextResponse.json(
+        { ok: false, reason: "DOCS_NOT_READY" },
+        { status: 200 }
+      );
     }
 
     // Prefer signed URL via storageKey. Fallback to public url if you must.
     let certificateUrl: string | null = null;
 
     if (cert.storageKey) {
+      const supabaseAdmin = getSupabaseAdmin();
+
       const { data, error } = await supabaseAdmin.storage
         .from("policy-documents")
         .createSignedUrl(cert.storageKey, 60 * 10); // 10 minutes
