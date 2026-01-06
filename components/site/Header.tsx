@@ -76,9 +76,9 @@ export default function Header() {
 
           {/* Desktop brand text */}
           <div className="leading-tight hidden sm:block">
-            <div className="text-[15px] font-extrabold tracking-tight text-slate-900 font-tan">
-              GoTempCover
-            </div>
+<div className="text-[15px] font-extrabold tracking-tight text-slate-900">
+  GoTempCover
+</div>
             <div className="text-[11px] text-slate-500">
               Temporary cover, simplified.
             </div>
@@ -86,9 +86,9 @@ export default function Header() {
 
           {/* Mobile brand text */}
           <div className="leading-tight sm:hidden">
-            <div className="text-[15px] font-extrabold tracking-tight text-slate-900 font-tan">
-              GoTempCover
-            </div>
+<div className="text-[15px] font-extrabold tracking-tight text-slate-900">
+  GoTempCover
+</div>
           </div>
         </Link>
 

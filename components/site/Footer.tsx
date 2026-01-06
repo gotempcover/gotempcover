@@ -31,9 +31,10 @@ export default function Footer() {
               />
 
               <div className="min-w-0 leading-tight">
-                <div className="text-[15px] font-extrabold tracking-tight text-slate-900 font-tan">
-                  GoTempCover
-                </div>
+<div className="text-[15px] font-extrabold tracking-tight text-slate-900">
+  GoTempCover
+</div>
+
                 <div className="text-[11px] text-slate-500">
                   Temporary cover, simplified.
                 </div>
