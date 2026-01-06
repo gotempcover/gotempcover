@@ -10,26 +10,63 @@ export type FulfillResult = {
   email: string;
 };
 
+function stripTrailingSlash(url: string) {
+  return url.replace(/\/+$/, "");
+}
+
+/**
+ * Server-safe site URL resolver.
+ * ✅ Uses SITE_URL first (recommended)
+ * ✅ Falls back to NEXT_PUBLIC_SITE_URL / NEXT_PUBLIC_BASE_URL if you already have them
+ * ✅ Only falls back to localhost in dev
+ * ❌ Never silently uses localhost in production
+ */
+function getSiteUrl() {
+  const raw =
+    process.env.SITE_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_BASE_URL;
+
+  if (raw && raw.trim()) return stripTrailingSlash(raw.trim());
+
+  if (process.env.NODE_ENV !== "production") return "http://localhost:3000";
+
+  throw new Error(
+    "Missing SITE_URL env var. Set SITE_URL=https://www.gotempcover.co.uk in Vercel (Production + Preview)."
+  );
+}
+
 async function renderPdf(path: string, payload: any): Promise<Buffer> {
-  const base = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+  const base = getSiteUrl();
 
-  const res = await fetch(`${base}${path}`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-internal-key": process.env.INTERNAL_RENDER_KEY || "",
-    },
-    body: JSON.stringify(payload),
-    cache: "no-store",
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25_000);
 
-  if (!res.ok) {
-    const t = await res.text().catch(() => "");
-    throw new Error(`Render failed ${path} (${res.status}): ${t}`);
+  try {
+    const res = await fetch(`${base}${path}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-internal-key": process.env.INTERNAL_RENDER_KEY || "",
+      },
+      body: JSON.stringify(payload),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      throw new Error(`Render failed ${path} (${res.status}): ${t}`);
+    }
+
+    const arr = await res.arrayBuffer();
+    return Buffer.from(arr);
+  } catch (e: any) {
+    const msg = e?.name === "AbortError" ? "Render timed out" : e?.message ?? String(e);
+    throw new Error(`Render request failed ${path}: ${msg}`);
+  } finally {
+    clearTimeout(timeout);
   }
-
-  const arr = await res.arrayBuffer();
-  return Buffer.from(arr);
 }
 
 async function uploadPdf(bucket: string, key: string, pdf: Buffer) {
@@ -63,7 +100,7 @@ export async function fulfillPolicy(policyId: string): Promise<FulfillResult> {
 
   // If docs are missing, generate + upload + write rows
   if (!(existingProposal && existingCert)) {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    const baseUrl = getSiteUrl();
 
     const proposalPayload = {
       policyNumber: policy.policyNumber,
