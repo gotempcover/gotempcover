@@ -147,12 +147,6 @@ export default function Footer() {
                 Regulation Authority are available on request.
               </div>
 
-              <div className="mt-3 text-[11px] leading-relaxed text-slate-600">
-                Registered in England and Wales as{" "}
-                <span className="font-semibold">ACCELERANT INSURANCE UK LIMITED</span>. Reg. No. 03326800.
-                Registered Address: One, Fleet Place, London, England, EC4M 7WS. Authorised and
-                regulated by the Financial Conduct Authority (207658).
-              </div>
 
               <div className="mt-4 text-[11px] leading-relaxed text-slate-500">
                 Confidentiality notice: The content of this site and any related communications is
