@@ -320,7 +320,7 @@ function DeclarationPart1() {
       <DeclIntro />
 
       <Text style={styles.groupTitle}>1. I declare that I (and any named driver):</Text>
-      <Item k="a)" text="Are aged between 21 and 75 years of age;" />
+      <Item k="a)" text="Are aged between 17 and 75 years of age;" />
       <Item k="b)" text="Hold a Full United Kingdom driving licence (unless cover is agreed for another licence type);" />
       <Item k="c)" text="Have been a permanent UK resident for the last 12 months (1 year);" />
       <Item k="d)" text="Are not aware of any pending prosecution or Police enquiry for any motoring offences;" />

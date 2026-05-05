@@ -187,6 +187,23 @@ export default function GetQuotePage() {
     }
   }, []);
 
+  const calendarMonths = useMemo(() => {
+  if (!draft?.startAt || !draft?.endAt) return 1;
+  const start = parseDateTimeLocal(draft.startAt);
+  const end = parseDateTimeLocal(draft.endAt);
+  if (!start || !end) return 1;
+
+  const yearDiff = end.getFullYear() - start.getFullYear();
+  const monthDiff = end.getMonth() - start.getMonth();
+  const dayDiff = end.getDate() - start.getDate();
+  const timeDiff = (end.getHours() * 60 + end.getMinutes()) - (start.getHours() * 60 + start.getMinutes());
+
+  let total = yearDiff * 12 + monthDiff;
+  if (dayDiff > 0 || (dayDiff === 0 && timeDiff > 0)) total += 1;
+
+  return clampMin(total, 1);
+}, [draft?.startAt, draft?.endAt]);
+
   // Keep computed address in sync
   useEffect(() => {
     const addr = buildAddressString(address);
@@ -219,23 +236,21 @@ export default function GetQuotePage() {
     const H = 60 * 60 * 1000;
     const D = 24 * H;
     const W = 7 * D;
-    const M = 30 * D;
 
     const hours = clampMin(Math.ceil(durationMs / H), 1);
     const days = clampMin(Math.ceil(durationMs / D), 1);
     const weeks = clampMin(Math.ceil(durationMs / W), 1);
-    const months = clampMin(Math.ceil(durationMs / M), 1);
 
     const options: PriceOption[] = [
       { key: "hour", label: "Hourly", helper: "For short journeys", unitLabel: "hour", unitPrice: RATES.hour, units: hours, total: Number((hours * RATES.hour).toFixed(2)) },
       { key: "day", label: "Daily", helper: "Most popular", unitLabel: "day", unitPrice: RATES.day, units: days, total: Number((days * RATES.day).toFixed(2)) },
       { key: "week", label: "Weekly", helper: "Better value", unitLabel: "week", unitPrice: RATES.week, units: weeks, total: Number((weeks * RATES.week).toFixed(2)) },
-      { key: "month", label: "Monthly", helper: "Longer cover", unitLabel: "month", unitPrice: RATES.month, units: months, total: Number((months * RATES.month).toFixed(2)) },
+      { key: "month", label: "Monthly", helper: "Longer cover", unitLabel: "month", unitPrice: RATES.month, units: calendarMonths, total: Number((calendarMonths * RATES.month).toFixed(2)) },
     ];
 
     const best = options.reduce((acc, cur) => (cur.total < acc.total ? cur : acc), options[0]);
     return { options, best };
-  }, [durationMs]);
+  }, [durationMs, calendarMonths]);
 
   useEffect(() => {
     if (!pricing.best) return;
